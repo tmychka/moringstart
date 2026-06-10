@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0a0f1e;
+  color: white;
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.metric-label {
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.metric-label-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.metric-label-visible {
+  opacity: 1;
+  pointer-events: auto;
+}

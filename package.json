@@ -1,0 +1,7 @@
+{
+  "name": "morning-start",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "(cd backend && node server.js) & (cd frontend && npm run dev)"
+  }
+}
