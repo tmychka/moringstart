@@ -36,4 +36,50 @@ app.delete('/metrics/:id', (req, res) => {
   res.status(204).end();
 });
 
+// --- Steps tracker ---
+
+app.get('/metrics/:id/steps', (req, res) => {
+  const metricId = Number(req.params.id);
+  const goalRow = db.prepare('SELECT goal FROM step_goals WHERE metric_id = ?').get(metricId);
+  const goal = goalRow ? goalRow.goal : 10000;
+  const rows = db.prepare('SELECT date, steps FROM step_entries WHERE metric_id = ?').all(metricId);
+  const entries = {};
+  for (const r of rows) entries[r.date] = r.steps;
+  res.json({ goal, entries });
+});
+
+app.put('/metrics/:id/goal', (req, res) => {
+  const metricId = Number(req.params.id);
+  const goal = Number(req.body.goal);
+  if (!Number.isInteger(goal) || goal < 1000 || goal > 20000) {
+    return res.status(400).json({ error: 'goal must be an integer between 1000 and 20000' });
+  }
+  db.prepare(`
+    INSERT INTO step_goals (metric_id, goal) VALUES (?, ?)
+    ON CONFLICT(metric_id) DO UPDATE SET goal = excluded.goal
+  `).run(metricId, goal);
+  res.json({ goal });
+});
+
+app.put('/metrics/:id/steps', (req, res) => {
+  const metricId = Number(req.params.id);
+  const { date } = req.body;
+  const steps = Number(req.body.steps);
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    return res.status(400).json({ error: 'steps must be a non-negative integer' });
+  }
+  if (steps > 0) {
+    db.prepare(`
+      INSERT INTO step_entries (metric_id, date, steps) VALUES (?, ?, ?)
+      ON CONFLICT(metric_id, date) DO UPDATE SET steps = excluded.steps
+    `).run(metricId, date, steps);
+  } else {
+    db.prepare('DELETE FROM step_entries WHERE metric_id = ? AND date = ?').run(metricId, date);
+  }
+  res.json({ date, steps });
+});
+
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
