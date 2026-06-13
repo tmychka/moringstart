@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import HumanFigure from '../components/HumanFigure';
 import MetricsOverlay from '../components/MetricsOverlay';
 import ManageMetrics from '../components/ManageMetrics';
@@ -6,9 +6,7 @@ import { getMetrics } from '../api';
 
 export default function Home() {
   const [metrics, setMetrics]       = useState([]);
-  const [hovered, setHovered]       = useState(false);
   const [showManage, setShowManage] = useState(false);
-  const hideTimer = useRef(null);
 
   useEffect(() => {
     getMetrics().then(setMetrics).catch(console.error);
@@ -16,30 +14,15 @@ export default function Home() {
 
   const reload = () => getMetrics().then(setMetrics).catch(console.error);
 
-  const cancelHide = useCallback(() => {
-    if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
-  }, []);
-
-  const scheduleHide = useCallback(() => {
-    cancelHide();
-    hideTimer.current = setTimeout(() => setHovered(false), 350);
-  }, [cancelHide]);
-
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'white', overflow: 'hidden' }}>
       {/* 3D canvas */}
-      <HumanFigure
-        rotate={false}
-        onHover={() => { cancelHide(); setHovered(true); }}
-        onUnhover={scheduleHide}
-      />
+      <HumanFigure rotate={false} />
 
       {/* Metrics arc */}
       <MetricsOverlay
         metrics={metrics}
-        visible={hovered}
-        onLabelEnter={cancelHide}
-        onLabelLeave={scheduleHide}
+        visible={true}
       />
 
       {/* App title */}
@@ -88,26 +71,6 @@ export default function Home() {
       >
         Metrics
       </button>
-
-      {/* Hint text */}
-      {!hovered && (
-        <p style={{
-          position: 'absolute',
-          bottom: '28px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontSize: '0.65rem',
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          color: 'dark',
-          margin: 0,
-          pointerEvents: 'none',
-          zIndex: 20,
-          transition: 'opacity 0.3s',
-        }}>
-          Hover to reveal
-        </p>
-      )}
 
       {/* Manage modal */}
       {showManage && (

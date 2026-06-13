@@ -124,7 +124,7 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
           transformOrigin: isLeft ? 'right center' : 'left center',
         }}
       >
-        {isLeft ? `${metric.name} →` : `← ${metric.name}`}
+        {metric.name}
       </span>
     </div>
   );
