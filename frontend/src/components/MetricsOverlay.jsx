@@ -25,7 +25,7 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
   const allAngles = [...LEFT_ANGLES, ...RIGHT_ANGLES];
   const displayed = metrics.slice(0, 7);
   const cx = w / 2;
-  const cy = h / 2;
+  const cy = h / 2 - 88;
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
@@ -54,11 +54,11 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
               key={metric.id}
               x1={cx} y1={cy}
               x2={lx} y2={ly}
-              stroke="#2dd4bf"
+              stroke="black"
               strokeWidth="0.8"
               strokeOpacity={visible ? 0.28 : 0}
               filter="url(#lineglow)"
-              style={{ transition: 'stroke-opacity 0.45s ease' }}
+              style={{ transition: 'stroke-opacity 0.15s ease' }}
             />
           );
         })}
@@ -113,11 +113,10 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
         style={{
           display: 'inline-block',
           fontSize: '0.83rem',
-          fontWeight: 300,
+          fontWeight: 500,
           letterSpacing: '0.07em',
-          color: hovered ? '#2dd4bf' : 'rgba(255,255,255,0.78)',
+          color: hovered ? 'black' : 'black',
           transform: hovered ? 'scale(1.1)' : 'scale(1)',
-          filter: hovered ? 'drop-shadow(0 0 7px rgba(45,212,191,0.7))' : 'none',
           transition: 'color 0.15s ease, transform 0.15s ease, filter 0.15s ease',
           cursor: 'pointer',
           whiteSpace: 'nowrap',

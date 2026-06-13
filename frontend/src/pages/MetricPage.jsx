@@ -1,5 +1,4 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import HumanFigure from '../components/HumanFigure';
 
 export default function MetricPage() {
   const { id } = useParams();
@@ -7,8 +6,6 @@ export default function MetricPage() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#0a0f1e', overflow: 'hidden' }}>
-      <HumanFigure rotate={true} />
-
       {/* Subtle back navigation */}
       <button
         onClick={() => navigate('/')}

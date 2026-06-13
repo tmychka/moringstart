@@ -26,7 +26,7 @@ export default function Home() {
   }, [cancelHide]);
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#0a0f1e', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'white', overflow: 'hidden' }}>
       {/* 3D canvas */}
       <HumanFigure
         rotate={false}
@@ -56,7 +56,7 @@ export default function Home() {
           fontSize: '0.65rem',
           letterSpacing: '0.3em',
           textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.2)',
+          color: 'black',
           margin: 0,
           fontWeight: 300,
         }}>Morning Start</p>
@@ -71,7 +71,7 @@ export default function Home() {
           right: '28px',
           background: 'none',
           border: '1px solid #134e4a',
-          color: '#134e4a',
+          color: 'green',
           borderRadius: '8px',
           padding: '7px 16px',
           fontSize: '0.65rem',
@@ -83,7 +83,7 @@ export default function Home() {
           zIndex: 20,
           transition: 'color 0.2s, border-color 0.2s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#2dd4bf'; e.currentTarget.style.borderColor = '#2dd4bf'; }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#0736ab'; e.currentTarget.style.borderColor = '#0736ab'; }}
         onMouseLeave={e => { e.currentTarget.style.color = '#134e4a'; e.currentTarget.style.borderColor = '#134e4a'; }}
       >
         Metrics
@@ -99,7 +99,7 @@ export default function Home() {
           fontSize: '0.65rem',
           letterSpacing: '0.18em',
           textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.12)',
+          color: 'dark',
           margin: 0,
           pointerEvents: 'none',
           zIndex: 20,
