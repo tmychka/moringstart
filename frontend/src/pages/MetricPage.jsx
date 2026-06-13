@@ -1,8 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import StepsTracker from '../components/StepsTracker';
 
 export default function MetricPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  if (id === '4') return <StepsTracker id={id} />;
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#0a0f1e', overflow: 'hidden' }}>

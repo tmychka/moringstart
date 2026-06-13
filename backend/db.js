@@ -11,6 +11,22 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS step_goals (
+    metric_id INTEGER PRIMARY KEY,
+    goal INTEGER NOT NULL DEFAULT 10000
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS step_entries (
+    metric_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    steps INTEGER NOT NULL,
+    PRIMARY KEY (metric_id, date)
+  )
+`);
+
 const count = db.prepare('SELECT COUNT(*) as c FROM metrics').get();
 if (count.c === 0) {
   const insert = db.prepare('INSERT INTO metrics (name) VALUES (?)');
