@@ -2,12 +2,29 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Angles: 0°=right, 90°=up(CSS top), 180°=left, 270°=bottom
-// Left side: upper-left → lower-left arc
-const LEFT_ANGLES  = [140, 162, 185, 210];
-// Right side: upper-right → lower-right arc (symmetric)
-const RIGHT_ANGLES = [40, 18, 352];
+// Arcs are defined as angular ranges so any number of metrics can be laid out.
+const LEFT_RANGE  = [140, 210];  // top-left → bottom-left
+const RIGHT_RANGE = [40, -8];    // top-right → bottom-right (−8 ≡ 352)
 const R = 290;
 const toRad = deg => (deg * Math.PI) / 180;
+
+// Evenly place `count` angles across [start,end]; a single item sits at the midpoint.
+function distribute([start, end], count) {
+  if (count <= 0) return [];
+  if (count === 1) return [(start + end) / 2];
+  return Array.from({ length: count }, (_, i) => start + (end - start) * (i / (count - 1)));
+}
+
+// left gets the extra when odd (matches the original 4/3 split at n=7)
+const leftCountFor = n => Math.ceil(n / 2);
+
+function computeAngles(n) {
+  const leftCount = leftCountFor(n);
+  return [
+    ...distribute(LEFT_RANGE, leftCount),
+    ...distribute(RIGHT_RANGE, n - leftCount),
+  ];
+}
 
 function useWindowSize() {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -22,8 +39,9 @@ function useWindowSize() {
 export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabelLeave }) {
   const navigate = useNavigate();
   const { w, h } = useWindowSize();
-  const allAngles = [...LEFT_ANGLES, ...RIGHT_ANGLES];
-  const displayed = metrics.slice(0, 7);
+  const displayed = metrics;
+  const leftCount = leftCountFor(displayed.length);
+  const allAngles = computeAngles(displayed.length);
   const cx = w / 2;
   const cy = h / 2 - 88;
 
@@ -69,7 +87,7 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
         const θ = toRad(allAngles[i]);
         const xOff = R * Math.cos(θ);
         const yOff = R * Math.sin(θ);
-        const isLeft = i < 4;
+        const isLeft = i < leftCount;
 
         return (
           <MetricLabel
