@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import StepsQuickPanel from './StepsQuickPanel';
+
+const STEPS_METRIC_ID = 4;
 
 // Angles: 0°=right, 90°=up(CSS top), 180°=left, 270°=bottom
 // Arcs are defined as angular ranges so any number of metrics can be laid out.
@@ -111,9 +114,39 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
 
 function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, onEnter, onLeave }) {
   const [hovered, setHovered] = useState(false);
+  const [open, setOpen] = useState(false);
+  const isSteps = Number(metric.id) === STEPS_METRIC_ID;
+  const wrapRef = useRef(null);
+  const clickTimer = useRef(null);
+
+  // Close the quick panel when clicking anywhere outside of it.
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open]);
+
+  // Single click navigates; a quick second click on the steps metric opens the panel.
+  const handleClick = () => {
+    if (!isSteps) { onNavigate(); return; }
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+      setOpen(true);
+      return;
+    }
+    clickTimer.current = setTimeout(() => {
+      clickTimer.current = null;
+      onNavigate();
+    }, 250);
+  };
 
   return (
     <div
+      ref={wrapRef}
       className={`metric-label ${visible ? 'metric-label-visible' : 'metric-label-hidden'}`}
       style={{
         position: 'absolute',
@@ -125,9 +158,9 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
       }}
       onMouseEnter={() => { setHovered(true); onEnter?.(); }}
       onMouseLeave={() => { setHovered(false); onLeave?.(); }}
-      onClick={onNavigate}
     >
       <span
+        onClick={handleClick}
         style={{
           display: 'inline-block',
           fontSize: '0.83rem',
@@ -144,6 +177,8 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
       >
         {metric.name}
       </span>
+
+      {open && isSteps && <StepsQuickPanel id={metric.id} isLeft={isLeft} />}
     </div>
   );
 }

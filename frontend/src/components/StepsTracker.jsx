@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSteps, saveGoal, saveSteps } from '../api';
+import { fmt, toKey } from '../stepsUtil';
 
 const ACCENT = '#2dd4bf';      // home page teal accent
 const ACCENT_DIM = '#134e4a';  // home page dim teal (borders)
@@ -8,12 +9,6 @@ const AMBER = '#f59e0b';
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// thin-space thousands separator: 10000 -> "10 000"
-const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-
-const toKey = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const startOfWeek = (d) => {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
