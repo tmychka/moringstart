@@ -117,7 +117,6 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
   const [open, setOpen] = useState(false);
   const isSteps = Number(metric.id) === STEPS_METRIC_ID;
   const wrapRef = useRef(null);
-  const clickTimer = useRef(null);
 
   // Close the quick panel when clicking anywhere outside of it.
   useEffect(() => {
@@ -129,53 +128,42 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
 
-  // Single click navigates; a quick second click on the steps metric opens the panel.
-  const handleClick = () => {
-    if (!isSteps) { onNavigate(); return; }
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-      setOpen(true);
-      return;
-    }
-    clickTimer.current = setTimeout(() => {
-      clickTimer.current = null;
-      onNavigate();
-    }, 250);
-  };
-
   return (
     <div
       ref={wrapRef}
-      className={`metric-label ${visible ? 'metric-label-visible' : 'metric-label-hidden'}`}
+      className={`metric-label absolute ${isLeft ? 'pr-2.5' : 'pl-2.5'} ${
+        visible ? 'metric-label-visible' : 'metric-label-hidden'
+      }`}
       style={{
-        position: 'absolute',
         left: cx + xOff,
         top: cy - yOff,
         transform: `translate(${isLeft ? '-100%' : '0%'}, -50%)`,
-        paddingLeft: isLeft ? 0 : '10px',
-        paddingRight: isLeft ? '10px' : 0,
       }}
       onMouseEnter={() => { setHovered(true); onEnter?.(); }}
       onMouseLeave={() => { setHovered(false); onLeave?.(); }}
     >
-      <span
-        onClick={handleClick}
-        style={{
-          display: 'inline-block',
-          fontSize: '0.83rem',
-          fontWeight: 500,
-          letterSpacing: '0.07em',
-          color: hovered ? 'black' : 'black',
-          transform: hovered ? 'scale(1.1)' : 'scale(1)',
-          transition: 'color 0.15s ease, transform 0.15s ease, filter 0.15s ease',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          userSelect: 'none',
-          transformOrigin: isLeft ? 'right center' : 'left center',
-        }}
-      >
-        {metric.name}
+      <span className="inline-flex items-center gap-[7px]">
+        <span
+          onClick={onNavigate}
+          className={`inline-block cursor-pointer select-none whitespace-nowrap text-[0.83rem] font-medium tracking-[0.07em] text-black transition-[transform,color,filter] duration-150 ease-in-out ${
+            hovered ? 'scale-110' : 'scale-100'
+          }`}
+          style={{ transformOrigin: isLeft ? 'right center' : 'left center' }}
+        >
+          {metric.name}
+        </span>
+
+        {isSteps && (
+          <button
+            aria-label="Quick log steps"
+            onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+            className={`cursor-pointer rounded-md border-none px-[5px] py-0.5 text-[1.1rem] leading-none transition-colors hover:text-black ${
+              open ? 'bg-black/[0.06] text-black' : 'bg-transparent text-black/40'
+            }`}
+          >
+            ⋮
+          </button>
+        )}
       </span>
 
       {open && isSteps && <StepsQuickPanel id={metric.id} isLeft={isLeft} />}

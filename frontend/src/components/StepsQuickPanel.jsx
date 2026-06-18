@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { getSteps, saveSteps } from '../api';
 import { fmt, toKey } from '../stepsUtil';
 
-const ACCENT = '#2dd4bf';      // teal — goal reached
-const ACCENT_DIM = '#134e4a';  // dim teal — borders / save button
-const AMBER = '#f59e0b';       // almost there
+const ACCENT = '#2dd4bf';  // teal — goal reached
+const AMBER = '#f59e0b';   // almost there
 
 // Compact "log today's steps" card shown under the steps metric label on hover.
 export default function StepsQuickPanel({ id, isLeft }) {
@@ -40,19 +39,26 @@ export default function StepsQuickPanel({ id, isLeft }) {
 
   return (
     <div
-      style={{ ...S.panel, [isLeft ? 'left' : 'right']: 0 }}
+      className={`absolute top-full mt-2 z-30 flex w-[190px] cursor-default flex-col gap-2.5 rounded-[14px] bg-white p-3.5 ${
+        isLeft ? '-left-[13px]' : 'right-0'
+      }`}
       onClick={stop}
       onMouseDown={stop}
     >
-      <div style={S.label}>Today</div>
-
-      <div style={S.progress}>
-        <span style={{ color: reached ? ACCENT : AMBER }}>{fmt(Number(draft) || 0)}</span>
-        <span style={S.slash}> / {fmt(goal)}</span>
+      <div className="text-[0.55rem] font-semibold uppercase tracking-[0.18em] text-black/40">
+        Today
       </div>
 
-      <div style={S.barTrack}>
-        <div style={{ ...S.barFill, width: `${pct}%`, background: reached ? ACCENT : AMBER }} />
+      <div className="text-[1.05rem] font-normal leading-none tracking-[0.02em] text-slate-900">
+        <span style={{ color: reached ? ACCENT : AMBER }}>{fmt(Number(draft) || 0)}</span>
+        <span className="text-black/35"> / {fmt(goal)}</span>
+      </div>
+
+      <div className="h-1 overflow-hidden bg-black/[0.08]">
+        <div
+          className="h-full rounded transition-[width,background] duration-200 ease-out"
+          style={{ width: `${pct}%`, background: reached ? ACCENT : AMBER }}
+        />
       </div>
 
       <input
@@ -60,16 +66,19 @@ export default function StepsQuickPanel({ id, isLeft }) {
         min={0}
         value={draft}
         onChange={(e) => setDraft(Number(e.target.value))}
-        style={S.input}
+        className="w-full rounded-[10px] border border-black/10 bg-black/[0.03] px-2.5 py-2 text-center text-base font-normal text-slate-900 outline-none"
       />
 
-      <div style={S.actions}>
-        <button style={S.ghost} onClick={() => setDraft(goal)}>Set goal</button>
+      <div className="flex gap-2">
         <button
-          style={S.save}
+          className="flex-1 rounded-[9px] border border-black/5 bg-transparent py-2 text-[0.65rem] tracking-[0.03em] text-black/60"
+          onClick={() => setDraft(goal)}
+        >
+          Set goal
+        </button>
+        <button
+          className="flex-1 rounded-[9px] border border-black/5 py-2 text-[0.65rem] font-bold tracking-[0.03em] text-navy transition-colors"
           onClick={save}
-          onMouseEnter={(e) => (e.currentTarget.style.background = ACCENT)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = ACCENT_DIM)}
         >
           {saved ? 'Saved ✓' : 'Save'}
         </button>
@@ -77,46 +86,3 @@ export default function StepsQuickPanel({ id, isLeft }) {
     </div>
   );
 }
-
-const S = {
-  panel: {
-    position: 'absolute',
-    top: '100%',
-    marginTop: '6px',
-    width: '190px',
-    background: '#0d1526',
-    border: `1px solid ${ACCENT_DIM}`,
-    borderRadius: '14px',
-    padding: '14px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
-    cursor: 'default',
-    zIndex: 30,
-  },
-  label: {
-    fontSize: '0.55rem', letterSpacing: '0.18em', textTransform: 'uppercase',
-    color: ACCENT, fontWeight: 600,
-  },
-  progress: { fontSize: '1.05rem', fontWeight: 300, letterSpacing: '0.02em', lineHeight: 1 },
-  slash: { color: 'rgba(255,255,255,0.4)' },
-  barTrack: { height: '4px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: '4px', transition: 'width 0.2s ease, background 0.2s ease' },
-  input: {
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '10px', color: 'white', fontSize: '1rem', fontWeight: 300,
-    padding: '8px 10px', textAlign: 'center', fontFamily: 'inherit', width: '100%', outline: 'none',
-  },
-  actions: { display: 'flex', gap: '8px' },
-  ghost: {
-    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    color: 'rgba(255,255,255,0.8)', borderRadius: '9px', padding: '8px 0', fontSize: '0.65rem',
-    cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.03em',
-  },
-  save: {
-    flex: 1, background: ACCENT_DIM, border: 'none', color: 'white', borderRadius: '9px',
-    padding: '8px 0', fontSize: '0.65rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-    letterSpacing: '0.03em', transition: 'background 0.15s',
-  },
-};
