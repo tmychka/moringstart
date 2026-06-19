@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import StepsTracker from '../components/StepsTracker';
+import Notebook from '../components/Notebook';
 
 export default function MetricPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  if (id === '1') return <Notebook id={id} />;
   if (id === '4') return <StepsTracker id={id} />;
 
   return (

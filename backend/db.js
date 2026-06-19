@@ -27,6 +27,17 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    metric_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    links TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 const count = db.prepare('SELECT COUNT(*) as c FROM metrics').get();
 if (count.c === 0) {
   const insert = db.prepare('INSERT INTO metrics (name) VALUES (?)');
