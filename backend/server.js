@@ -82,4 +82,52 @@ app.put('/metrics/:id/steps', (req, res) => {
   res.json({ date, steps });
 });
 
+// --- Programmer's Notebook ---
+
+const parseNote = (row) => ({ ...row, links: JSON.parse(row.links || '{}') });
+
+app.get('/metrics/:id/notes', (req, res) => {
+  const metricId = Number(req.params.id);
+  const rows = db.prepare('SELECT * FROM notes WHERE metric_id = ? ORDER BY created_at DESC').all(metricId);
+  res.json(rows.map(parseNote));
+});
+
+app.post('/metrics/:id/notes', (req, res) => {
+  const metricId = Number(req.params.id);
+  const { content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: 'content required' });
+  const info = db.prepare('INSERT INTO notes (metric_id, content) VALUES (?, ?)').run(metricId, content.trim());
+  const row = db.prepare('SELECT * FROM notes WHERE id = ?').get(info.lastInsertRowid);
+  res.status(201).json(parseNote(row));
+});
+
+app.put('/metrics/:id/notes/:noteId', (req, res) => {
+  const { noteId } = req.params;
+  const { content, links } = req.body;
+  const sets = [];
+  const values = [];
+  if (typeof content === 'string') {
+    if (!content.trim()) return res.status(400).json({ error: 'content required' });
+    sets.push('content = ?');
+    values.push(content.trim());
+  }
+  if (links && typeof links === 'object') {
+    sets.push('links = ?');
+    values.push(JSON.stringify(links));
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+  sets.push("updated_at = datetime('now')");
+  values.push(noteId);
+  const info = db.prepare(`UPDATE notes SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  if (info.changes === 0) return res.status(404).json({ error: 'not found' });
+  const row = db.prepare('SELECT * FROM notes WHERE id = ?').get(noteId);
+  res.json(parseNote(row));
+});
+
+app.delete('/metrics/:id/notes/:noteId', (req, res) => {
+  const info = db.prepare('DELETE FROM notes WHERE id = ?').run(req.params.noteId);
+  if (info.changes === 0) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+});
+
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
