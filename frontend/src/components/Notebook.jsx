@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotes, createNote, updateNote, deleteNote } from '../api';
+import RoadmapTimeline from './RoadmapTimeline';
 
 const BLUE = '#2563eb';
 const TEXT = '#374151';
@@ -87,6 +88,8 @@ export default function Notebook({ id }) {
         <p style={styles.subtitle}>
           Track what you've learned. Tip: turn on “Edit links” to attach a URL to any word.
         </p>
+
+        <RoadmapTimeline id={id} />
 
         <div style={styles.composer}>
           <textarea

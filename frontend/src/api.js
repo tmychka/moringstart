@@ -13,3 +13,9 @@ export const getNotes   = (id)              => fetch(`${BASE}/${id}/notes`).then
 export const createNote = (id, content)     => fetch(`${BASE}/${id}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) }).then(r => r.json());
 export const updateNote = (id, noteId, body) => fetch(`${BASE}/${id}/notes/${noteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
 export const deleteNote = (id, noteId)      => fetch(`${BASE}/${id}/notes/${noteId}`, { method: 'DELETE' });
+
+// Roadmap timeline
+export const getRoadmap      = (id)            => fetch(`${BASE}/${id}/roadmap`).then(r => r.json());
+export const createMilestone = (id, body)      => fetch(`${BASE}/${id}/roadmap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+export const updateMilestone = (id, mId, body) => fetch(`${BASE}/${id}/roadmap/${mId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+export const deleteMilestone = (id, mId)       => fetch(`${BASE}/${id}/roadmap/${mId}`, { method: 'DELETE' });

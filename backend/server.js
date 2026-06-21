@@ -130,4 +130,73 @@ app.delete('/metrics/:id/notes/:noteId', (req, res) => {
   res.status(204).end();
 });
 
+// --- Roadmap timeline ---
+
+const ROADMAP_STATUSES = ['upcoming', 'in_progress', 'done'];
+const clampPosition = (n) => Math.min(100, Math.max(0, n));
+
+app.get('/metrics/:id/roadmap', (req, res) => {
+  const metricId = Number(req.params.id);
+  const rows = db.prepare('SELECT * FROM roadmap_milestones WHERE metric_id = ? ORDER BY position ASC').all(metricId);
+  res.json(rows);
+});
+
+app.post('/metrics/:id/roadmap', (req, res) => {
+  const metricId = Number(req.params.id);
+  const { title, position } = req.body;
+  if (!title || !title.trim()) return res.status(400).json({ error: 'title required' });
+  let pos = 50;
+  if (position !== undefined) {
+    const n = Number(position);
+    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
+    pos = clampPosition(n);
+  }
+  const info = db.prepare('INSERT INTO roadmap_milestones (metric_id, title, position) VALUES (?, ?, ?)')
+    .run(metricId, title.trim(), pos);
+  const row = db.prepare('SELECT * FROM roadmap_milestones WHERE id = ?').get(info.lastInsertRowid);
+  res.status(201).json(row);
+});
+
+app.put('/metrics/:id/roadmap/:milestoneId', (req, res) => {
+  const metricId = Number(req.params.id);
+  const { milestoneId } = req.params;
+  const { title, position, status } = req.body;
+  const sets = [];
+  const values = [];
+  if (title !== undefined) {
+    if (!title || !title.trim()) return res.status(400).json({ error: 'title required' });
+    sets.push('title = ?');
+    values.push(title.trim());
+  }
+  if (position !== undefined) {
+    const n = Number(position);
+    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
+    sets.push('position = ?');
+    values.push(clampPosition(n));
+  }
+  if (status !== undefined) {
+    if (!ROADMAP_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid status' });
+    sets.push('status = ?');
+    values.push(status);
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+  // Enforce a single current (in_progress) node per metric.
+  if (status === 'in_progress') {
+    db.prepare("UPDATE roadmap_milestones SET status = 'upcoming' WHERE metric_id = ? AND status = 'in_progress' AND id <> ?")
+      .run(metricId, milestoneId);
+  }
+  sets.push("updated_at = datetime('now')");
+  values.push(milestoneId);
+  const info = db.prepare(`UPDATE roadmap_milestones SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  if (info.changes === 0) return res.status(404).json({ error: 'not found' });
+  const row = db.prepare('SELECT * FROM roadmap_milestones WHERE id = ?').get(milestoneId);
+  res.json(row);
+});
+
+app.delete('/metrics/:id/roadmap/:milestoneId', (req, res) => {
+  const info = db.prepare('DELETE FROM roadmap_milestones WHERE id = ?').run(req.params.milestoneId);
+  if (info.changes === 0) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+});
+
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
