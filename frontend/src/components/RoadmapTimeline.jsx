@@ -21,33 +21,47 @@ const STATUS_META = {
 const STATUS_ORDER = ['upcoming', 'in_progress', 'done'];
 
 const clamp = (n, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
+// Evenly distribute n nodes across the line, with insets so end labels don't clip.
+const slotLeft = (index, n) => (n <= 1 ? 50 : 6 + (index / (n - 1)) * 88);
 
 export default function RoadmapTimeline({ id }) {
   const [milestones, setMilestones] = useState([]);
+  const [order, setOrder] = useState([]);          // milestone ids, in sequence
   const [loaded, setLoaded] = useState(false);
-  const [openId, setOpenId] = useState(null);     // milestone whose menu is open
+  const [openId, setOpenId] = useState(null);       // milestone whose menu is open
   const [titleDraft, setTitleDraft] = useState('');
   const [draggingId, setDraggingId] = useState(null);
+  const [dragPct, setDragPct] = useState(null);     // live pointer % for dragged node
 
   const trackRef = useRef(null);
-  const dragState = useRef(null);   // { id, moved }
-  const nudgeRef = useRef(null);    // { id, position } pending keyboard persist
+  const dragState = useRef(null);                   // { id, startX, moved }
 
   useEffect(() => {
     getRoadmap(id).then((rows) => {
-      setMilestones(Array.isArray(rows) ? rows : []);
+      const list = Array.isArray(rows) ? rows : [];
+      setMilestones(list);
+      setOrder(list.map((r) => r.id));
       setLoaded(true);
     });
   }, [id]);
 
-  const sorted = [...milestones].sort((a, b) => a.position - b.position);
+  const byId = (mid) => milestones.find((m) => m.id === mid);
+  const ordered = order.map(byId).filter(Boolean);
+  const n = ordered.length;
   const total = milestones.length;
   const doneCount = milestones.filter((m) => m.status === 'done').length;
   const current = milestones.find((m) => m.status === 'in_progress');
-  const doneMax = milestones
-    .filter((m) => m.status === 'done')
-    .reduce((mx, m) => Math.max(mx, m.position), 0);
-  const fillPct = current ? current.position : (doneCount ? doneMax : 0);
+
+  // Progress fill reaches the current node's slot, else the furthest done node, else 0.
+  let fillIndex = -1;
+  if (current) {
+    fillIndex = order.indexOf(current.id);
+  } else {
+    order.forEach((mid, i) => {
+      if (byId(mid)?.status === 'done') fillIndex = i;
+    });
+  }
+  const fillPct = fillIndex >= 0 ? slotLeft(fillIndex, n) : 0;
 
   // ----- helpers -----
   const patchLocal = (mId, patch) =>
@@ -63,32 +77,42 @@ export default function RoadmapTimeline({ id }) {
     return clamp(((clientX - rect.left) / rect.width) * 100);
   };
 
-  const addAt = async (pct) => {
-    const created = await createMilestone(id, { title: 'New task', position: pct });
+  // Renumber positions to match a sequence order; persist only the ones that moved.
+  const persistOrder = (seq) => {
+    seq.forEach((mid, i) => {
+      if (byId(mid)?.position !== i) updateMilestone(id, mid, { position: i });
+    });
+    setMilestones((prev) =>
+      prev.map((m) => {
+        const i = seq.indexOf(m.id);
+        return i >= 0 && m.position !== i ? { ...m, position: i } : m;
+      })
+    );
+  };
+
+  const add = async () => {
+    const created = await createMilestone(id, { title: 'New task', position: order.length });
     if (created && created.id) {
       setMilestones((prev) => [...prev, created]);
+      setOrder((prev) => [...prev, created.id]);
       setOpenId(created.id);
       setTitleDraft(created.title);
     }
   };
 
-  const handleTrackClick = (e) => {
-    if (e.target.dataset.clicklayer !== 'true') return;
-    addAt(pctFromClientX(e.clientX));
-  };
-
   const setStatus = (m, status) => persist(m.id, { status });
 
-  const remove = async (mId) => {
-    await deleteMilestone(id, mId);
-    setMilestones((prev) => prev.filter((m) => m.id !== mId));
-    if (openId === mId) setOpenId(null);
+  const remove = async (mid) => {
+    await deleteMilestone(id, mid);
+    setMilestones((prev) => prev.filter((m) => m.id !== mid));
+    setOrder((prev) => prev.filter((x) => x !== mid));
+    if (openId === mid) setOpenId(null);
   };
 
-  const openMenu = (m) => {
+  const openMenu = (mid) => {
     setOpenId((cur) => {
-      const next = cur === m.id ? null : m.id;
-      if (next) setTitleDraft(m.title);
+      const next = cur === mid ? null : mid;
+      if (next) { const m = byId(mid); setTitleDraft(m ? m.title : ''); }
       return next;
     });
   };
@@ -99,58 +123,70 @@ export default function RoadmapTimeline({ id }) {
     else setTitleDraft(m.title);
   };
 
-  // ----- drag (pointer events) -----
-  const onNodePointerDown = (e, m) => {
+  const moveInOrder = (mid, dir) => {
+    const ci = order.indexOf(mid);
+    const ni = clamp(ci + dir, 0, order.length - 1);
+    if (ni === ci) return;
+    const next = [...order];
+    next.splice(ci, 1);
+    next.splice(ni, 0, mid);
+    setOrder(next);
+    persistOrder(next);
+  };
+
+  // ----- drag to reorder (pointer events) -----
+  const onNodePointerDown = (e, mid) => {
     if (e.button !== undefined && e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragState.current = { id: m.id, startX: e.clientX, moved: false };
+    dragState.current = { id: mid, startX: e.clientX, moved: false };
   };
 
-  const onNodePointerMove = (e, m) => {
+  const onNodePointerMove = (e, mid) => {
     const st = dragState.current;
-    if (!st || st.id !== m.id) return;
+    if (!st || st.id !== mid) return;
     if (!st.moved && Math.abs(e.clientX - st.startX) < 4) return;
     st.moved = true;
-    if (draggingId !== m.id) setDraggingId(m.id);
-    patchLocal(m.id, { position: pctFromClientX(e.clientX) });
+    const pct = pctFromClientX(e.clientX);
+    if (draggingId !== mid) setDraggingId(mid);
+    setDragPct(pct);
+    setOrder((prev) => {
+      const ci = prev.indexOf(mid);
+      const ti = clamp(Math.round((pct / 100) * (prev.length - 1)), 0, prev.length - 1);
+      if (ti === ci) return prev;
+      const next = [...prev];
+      next.splice(ci, 1);
+      next.splice(ti, 0, mid);
+      return next;
+    });
   };
 
-  const onNodePointerUp = (e, m) => {
+  const onNodePointerUp = (e, mid) => {
     const st = dragState.current;
     dragState.current = null;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
     if (!st) return;
     if (st.moved) {
       setDraggingId(null);
-      persist(m.id, { position: pctFromClientX(e.clientX) });
+      setDragPct(null);
+      persistOrder(order);
     } else {
-      openMenu(m);
+      openMenu(mid);
     }
   };
 
   // ----- keyboard -----
-  const onNodeKeyDown = (e, m) => {
+  const onNodeKeyDown = (e, mid) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault();
-      const delta = e.key === 'ArrowLeft' ? -2 : 2;
-      const next = clamp((nudgeRef.current?.position ?? m.position) + delta);
-      nudgeRef.current = { id: m.id, position: next };
-      patchLocal(m.id, { position: next });
+      moveInOrder(mid, e.key === 'ArrowLeft' ? -1 : 1);
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      openMenu(m);
+      openMenu(mid);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      remove(m.id);
+      remove(mid);
     } else if (e.key === 'Escape') {
       setOpenId(null);
-    }
-  };
-
-  const onNodeKeyUp = (e, m) => {
-    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && nudgeRef.current?.id === m.id) {
-      persist(m.id, { position: nudgeRef.current.position });
-      nudgeRef.current = null;
     }
   };
 
@@ -161,7 +197,7 @@ export default function RoadmapTimeline({ id }) {
       <header style={styles.header}>
         <div>
           <h2 style={styles.heading}>Roadmap</h2>
-          <p style={styles.sub}>Plan your milestones and track where you are.</p>
+          <p style={styles.sub}>Arrange your sequence of events and track where you are.</p>
         </div>
         <div style={styles.headerRight}>
           {total > 0 && (
@@ -170,78 +206,60 @@ export default function RoadmapTimeline({ id }) {
               {doneCount} of {total} stages complete
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => addAt(current ? clamp(current.position + 10) : 50)}
-            style={styles.addBtn}
-            className="rt-add"
-          >
+          <button type="button" onClick={add} style={styles.addBtn} className="rt-add">
             + Add task
           </button>
         </div>
       </header>
 
-      <div
-        ref={trackRef}
-        style={styles.track}
-        role="group"
-        aria-label="Timeline track"
-        onClick={handleTrackClick}
-      >
-        {/* clickable band on the line */}
-        <div data-clicklayer="true" style={styles.clickLayer} title="Click to add a task here" />
-
+      <div ref={trackRef} style={styles.track} role="group" aria-label="Timeline track">
         {/* base + progress line */}
         <div style={styles.baseLine} />
         <div style={{ ...styles.fillLine, width: `${fillPct}%`, transition: draggingId ? 'none' : 'width .45s ease' }} />
 
-        {loaded && total === 0 && (
-          <p style={styles.emptyHint}>Click anywhere on the line, or “Add task”, to create your first milestone.</p>
+        {loaded && n === 0 && (
+          <p style={styles.emptyHint}>No events yet — add your first one with “Add task”.</p>
         )}
 
-        {sorted.map((m, i) => {
+        {ordered.map((m, i) => {
           const meta = STATUS_META[m.status] || STATUS_META.upcoming;
-          const above = i % 2 === 0;            // stagger labels
           const isCurrent = m.status === 'in_progress';
           const isOpen = openId === m.id;
           const isDragging = draggingId === m.id;
+          const left = isDragging && dragPct != null ? dragPct : slotLeft(i, n);
 
           return (
             <div
               key={m.id}
               style={{
                 ...styles.nodeWrap,
-                left: `${m.position}%`,
+                left: `${left}%`,
                 zIndex: isOpen ? 60 : isDragging ? 40 : 10,
-                transition: isDragging ? 'none' : 'left .35s cubic-bezier(.22,1,.36,1)',
+                transition: isDragging ? 'none' : 'left .3s cubic-bezier(.22,1,.36,1)',
               }}
             >
-              {/* label */}
+              {/* label (always above the line) */}
               <span
                 style={{
                   ...styles.label,
-                  ...(above ? styles.labelAbove : styles.labelBelow),
                   borderColor: isCurrent ? BLUE : BORDER,
                   color: isCurrent ? BLUE : TEXT,
                 }}
               >
                 {m.title}
               </span>
-
-              {/* connector tick */}
-              <span style={{ ...styles.tick, ...(above ? styles.tickAbove : styles.tickBelow) }} />
+              <span style={styles.tick} />
 
               {/* marker button */}
               <button
                 type="button"
-                aria-label={`${m.title} — ${meta.label}. Use arrow keys to move, Enter to edit, Delete to remove.`}
+                aria-label={`${m.title} — ${meta.label}. Use arrow keys to reorder, Enter to edit, Delete to remove.`}
                 aria-expanded={isOpen}
-                className="rt-node"
-                onPointerDown={(e) => onNodePointerDown(e, m)}
-                onPointerMove={(e) => onNodePointerMove(e, m)}
-                onPointerUp={(e) => onNodePointerUp(e, m)}
-                onKeyDown={(e) => onNodeKeyDown(e, m)}
-                onKeyUp={(e) => onNodeKeyUp(e, m)}
+                className={`rt-node${isCurrent ? ' rt-current' : ''}`}
+                onPointerDown={(e) => onNodePointerDown(e, m.id)}
+                onPointerMove={(e) => onNodePointerMove(e, m.id)}
+                onPointerUp={(e) => onNodePointerUp(e, m.id)}
+                onKeyDown={(e) => onNodeKeyDown(e, m.id)}
                 style={{
                   ...styles.marker,
                   borderColor: meta.ring,
@@ -250,9 +268,8 @@ export default function RoadmapTimeline({ id }) {
                   transform: isCurrent ? 'translateX(-50%) scale(1.12)' : 'translateX(-50%)',
                 }}
               >
-                {isCurrent && <span style={styles.pulseRing} className="rt-pulse" aria-hidden="true" />}
                 {m.status === 'done' && <CheckIcon />}
-                {m.status === 'in_progress' && <span style={styles.innerDot} className="rt-dot" aria-hidden="true" />}
+                {m.status === 'in_progress' && <span style={styles.innerDot} aria-hidden="true" />}
               </button>
 
               {/* popover menu */}
@@ -260,8 +277,8 @@ export default function RoadmapTimeline({ id }) {
                 <div
                   style={{
                     ...styles.menu,
-                    ...(m.position > 80 ? { left: 'auto', right: 0, transform: 'none' }
-                      : m.position < 20 ? { left: 0, transform: 'none' }
+                    ...(left > 80 ? { left: 'auto', right: 0, transform: 'none' }
+                      : left < 20 ? { left: 0, transform: 'none' }
                       : {}),
                   }}
                   role="dialog"
@@ -330,16 +347,14 @@ function CheckIcon() {
 }
 
 const keyframes = `
-@keyframes rtPulse {
-  0%   { transform: translate(-50%, -50%) scale(1);   opacity: .55; }
-  70%  { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
-  100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+@keyframes rtBlink {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 rgba(37,99,235,.55); }
+  50%      { opacity: .4;  box-shadow: 0 0 0 7px rgba(37,99,235,0); }
 }
-.rt-pulse { animation: rtPulse 1.8s ease-out infinite; }
-.rt-dot   { box-shadow: 0 0 0 0 rgba(37,99,235,.4); }
+.rt-current { animation: rtBlink 1.15s ease-in-out infinite; }
 .rt-node  { outline: none; }
 .rt-node:focus-visible { box-shadow: 0 0 0 3px rgba(37,99,235,.35); }
-.rt-node:hover { filter: brightness(1.02); transform-origin: center; }
+.rt-node:hover { filter: brightness(1.02); }
 .rt-add:hover { background: #1d4ed8; }
 .rt-delete:hover { background: #fef2f2; color: #dc2626; }
 `;
@@ -384,10 +399,6 @@ const styles = {
     width: '100%',
     marginTop: 8,
   },
-  clickLayer: {
-    position: 'absolute', left: 0, right: 0, top: 42, height: 40,
-    cursor: 'crosshair', zIndex: 1,
-  },
   baseLine: {
     position: 'absolute', left: 0, right: 0, top: 61, height: 4,
     background: '#eef2f6', borderRadius: 999, pointerEvents: 'none', zIndex: 2,
@@ -411,28 +422,19 @@ const styles = {
     boxShadow: '0 1px 3px rgba(16,24,40,0.18)',
     transition: 'transform .2s, background .25s, border-color .25s',
   },
-  pulseRing: {
-    position: 'absolute', left: '50%', top: '50%',
-    width: 22, height: 22, borderRadius: '50%',
-    background: 'rgba(37,99,235,0.45)', pointerEvents: 'none',
-  },
   innerDot: { width: 7, height: 7, borderRadius: '50%', background: '#fff' },
   tick: {
-    position: 'absolute', left: 0, width: 1.5, height: 12,
+    position: 'absolute', left: 0, top: 50, width: 1.5, height: 12,
     background: BORDER, transform: 'translateX(-50%)', pointerEvents: 'none',
   },
-  tickAbove: { top: 50 },
-  tickBelow: { top: 84 },
   label: {
-    position: 'absolute', left: 0, transform: 'translateX(-50%)',
+    position: 'absolute', left: 0, top: 16, transform: 'translateX(-50%)',
     maxWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     fontSize: '0.78rem', fontWeight: 500,
     background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 7,
     padding: '4px 9px', boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
     pointerEvents: 'none',
   },
-  labelAbove: { top: 16 },
-  labelBelow: { top: 96 },
   menu: {
     position: 'absolute', top: 92, left: 0, transform: 'translateX(-50%)',
     width: 232, background: '#fff', border: `1px solid ${BORDER}`,
