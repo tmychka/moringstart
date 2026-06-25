@@ -243,7 +243,7 @@ function NoteBody({ note, linkMode, activeWord, onWordClick, onDraftChange, onSa
 
 const styles = {
   page: {
-    minHeight: '100vh',
+    height: '100vh',
     width: '100vw',
     overflowY: 'auto',
     background: '#ffffff',
