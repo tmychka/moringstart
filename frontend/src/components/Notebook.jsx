@@ -92,16 +92,33 @@ export default function Notebook({ id }) {
         <RoadmapTimeline id={id} />
 
         <div style={styles.composer}>
-          <textarea
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            placeholder="What did you learn today?"
-            rows={4}
-            style={styles.textarea}
-          />
-          <button onClick={add} disabled={!newContent.trim()} style={styles.primaryBtn}>
-            Add entry
-          </button>
+          <div style={styles.composerField}>
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="What did you learn today?"
+              rows={4}
+              style={{ ...styles.textarea, paddingBottom: 48 }}
+            />
+            <button
+              onClick={add}
+              disabled={!newContent.trim()}
+              style={styles.composerBtn}
+              onMouseEnter={(e) => {
+                if (e.currentTarget.disabled) return;
+                e.currentTarget.style.background = '#f9fafb';
+                e.currentTarget.style.borderColor = '#d1d5db';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#ffffff';
+                e.currentTarget.style.borderColor = BORDER;
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+              }}
+            >
+              Add entry
+            </button>
+          </div>
         </div>
 
         <div style={styles.list}>
@@ -251,7 +268,6 @@ const styles = {
     fontFamily: FONT,
   },
   container: {
-    maxWidth: 720,
     margin: '0 auto',
     padding: '40px 24px 80px',
   },
@@ -278,7 +294,24 @@ const styles = {
     color: MUTED,
     fontSize: '0.92rem',
   },
-  composer: { marginBottom: 32 },
+  composer: { marginBottom: 20 },
+  composerField: { position: 'relative' },
+  composerBtn: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    background: '#ffffff',
+    color: TEXT,
+    border: `1px solid ${BORDER}`,
+    borderRadius: 8,
+    padding: '8px 18px',
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+    transition: 'background 0.18s, border-color 0.18s, box-shadow 0.18s',
+  },
   textarea: {
     width: '100%',
     resize: 'vertical',
@@ -293,7 +326,7 @@ const styles = {
   },
   primaryBtn: {
     marginTop: 10,
-    background: BLUE,
+    background: '#333',
     color: '#fff',
     border: 'none',
     borderRadius: 8,
