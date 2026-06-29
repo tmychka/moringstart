@@ -6,10 +6,10 @@ const STEPS_METRIC_ID = 4;
 
 // Angles: 0°=right, 90°=up(CSS top), 180°=left, 270°=bottom
 // Arcs are defined as angular ranges so any number of metrics can be laid out.
-const LEFT_RANGE  = [140, 210];  // top-left → bottom-left
-const RIGHT_RANGE = [40, -8];    // top-right → bottom-right (−8 ≡ 352)
+const LEFT_RANGE = [140, 210]; // top-left → bottom-left
+const RIGHT_RANGE = [40, -8]; // top-right → bottom-right (−8 ≡ 352)
 const R = 290;
-const toRad = deg => (deg * Math.PI) / 180;
+const toRad = (deg) => (deg * Math.PI) / 180;
 
 // Evenly place `count` angles across [start,end]; a single item sits at the midpoint.
 function distribute([start, end], count) {
@@ -19,14 +19,11 @@ function distribute([start, end], count) {
 }
 
 // left gets the extra when odd (matches the original 4/3 split at n=7)
-const leftCountFor = n => Math.ceil(n / 2);
+const leftCountFor = (n) => Math.ceil(n / 2);
 
 function computeAngles(n) {
   const leftCount = leftCountFor(n);
-  return [
-    ...distribute(LEFT_RANGE, leftCount),
-    ...distribute(RIGHT_RANGE, n - leftCount),
-  ];
+  return [...distribute(LEFT_RANGE, leftCount), ...distribute(RIGHT_RANGE, n - leftCount)];
 }
 
 function useWindowSize() {
@@ -51,12 +48,7 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
       {/* SVG connector lines */}
-      <svg
-        className="absolute inset-0"
-        width={w}
-        height={h}
-        style={{ overflow: 'visible' }}
-      >
+      <svg className="absolute inset-0" width={w} height={h} style={{ overflow: 'visible' }}>
         <defs>
           <filter id="lineglow">
             <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
@@ -73,8 +65,10 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
           return (
             <line
               key={metric.id}
-              x1={cx} y1={cy}
-              x2={lx} y2={ly}
+              x1={cx}
+              y1={cy}
+              x2={lx}
+              y2={ly}
               stroke="black"
               strokeWidth="0.8"
               strokeOpacity={visible ? 0.28 : 0}
@@ -112,7 +106,18 @@ export default function MetricsOverlay({ metrics, visible, onLabelEnter, onLabel
   );
 }
 
-function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, onEnter, onLeave }) {
+function MetricLabel({
+  metric,
+  cx,
+  cy,
+  xOff,
+  yOff,
+  isLeft,
+  visible,
+  onNavigate,
+  onEnter,
+  onLeave,
+}) {
   const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
   const isSteps = Number(metric.id) === STEPS_METRIC_ID;
@@ -139,8 +144,14 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
         top: cy - yOff,
         transform: `translate(${isLeft ? '-100%' : '0%'}, -50%)`,
       }}
-      onMouseEnter={() => { setHovered(true); onEnter?.(); }}
-      onMouseLeave={() => { setHovered(false); onLeave?.(); }}
+      onMouseEnter={() => {
+        setHovered(true);
+        onEnter?.();
+      }}
+      onMouseLeave={() => {
+        setHovered(false);
+        onLeave?.();
+      }}
     >
       <span className="inline-flex items-center gap-[7px]">
         <span
@@ -156,7 +167,10 @@ function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, visible, onNavigate, 
         {isSteps && (
           <button
             aria-label="Quick log steps"
-            onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((o) => !o);
+            }}
             className={`cursor-pointer rounded-md border-none px-[5px] py-0.5 text-[1.1rem] leading-none transition-colors hover:text-black ${
               open ? 'bg-black/[0.06] text-black' : 'bg-transparent text-black/40'
             }`}

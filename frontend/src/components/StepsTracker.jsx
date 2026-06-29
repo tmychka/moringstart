@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { getSteps, saveGoal, saveSteps } from '../api';
 import { fmt, toKey } from '../stepsUtil';
 
-const ACCENT = '#2dd4bf';      // home page teal accent
-const ACCENT_DIM = '#134e4a';  // home page dim teal (borders)
+const ACCENT = '#2dd4bf'; // home page teal accent
+const ACCENT_DIM = '#134e4a'; // home page dim teal (borders)
 const AMBER = '#f59e0b';
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -53,7 +53,8 @@ export default function StepsTracker({ id }) {
   const days = WEEKDAYS.map((_, i) => addDays(weekStart, i));
 
   const rangeLabel = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]} — ${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()]}`;
-  const stateLabel = weekOffset === 0 ? 'Current week' : weekOffset > 0 ? 'Upcoming week' : 'Finished week';
+  const stateLabel =
+    weekOffset === 0 ? 'Current week' : weekOffset > 0 ? 'Upcoming week' : 'Finished week';
   const finished = weekOffset < 0;
 
   const dayStatus = (key) => {
@@ -63,7 +64,10 @@ export default function StepsTracker({ id }) {
   };
 
   const openEditor = (d, key) => {
-    setEditing({ key, label: `${WEEKDAYS[(d.getDay() + 6) % 7]}, ${d.getDate()} ${MONTHS[d.getMonth()]}` });
+    setEditing({
+      key,
+      label: `${WEEKDAYS[(d.getDay() + 6) % 7]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`,
+    });
     setDraft(entries[key] || 0);
   };
 
@@ -139,14 +143,23 @@ export default function StepsTracker({ id }) {
         {/* ---- Week ---- */}
         <section style={S.weekSection}>
           <div style={S.weekHeader}>
-            <button style={S.arrow} onClick={() => setWeekOffset((o) => o - 1)}>‹</button>
+            <button style={S.arrow} onClick={() => setWeekOffset((o) => o - 1)}>
+              ‹
+            </button>
             <div style={S.weekHeaderMid}>
               <div style={S.range}>{rangeLabel}</div>
-              <div style={{ ...S.weekState, color: finished ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)' }}>
+              <div
+                style={{
+                  ...S.weekState,
+                  color: finished ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)',
+                }}
+              >
                 {stateLabel}
               </div>
             </div>
-            <button style={S.arrow} onClick={() => setWeekOffset((o) => o + 1)}>›</button>
+            <button style={S.arrow} onClick={() => setWeekOffset((o) => o + 1)}>
+              ›
+            </button>
           </div>
 
           <div style={{ ...S.grid, ...(finished ? S.gridFinished : null) }}>
@@ -190,9 +203,15 @@ export default function StepsTracker({ id }) {
 
         {/* ---- Legend ---- */}
         <section style={S.legend}>
-          <span style={S.legendItem}><i style={{ ...S.dot, background: ACCENT }} /> goal reached</span>
-          <span style={S.legendItem}><i style={{ ...S.dot, background: AMBER }} /> almost</span>
-          <span style={S.legendItem}><i style={{ ...S.dot, background: 'rgba(0,0,0,0.18)' }} /> no data</span>
+          <span style={S.legendItem}>
+            <i style={{ ...S.dot, background: ACCENT }} /> goal reached
+          </span>
+          <span style={S.legendItem}>
+            <i style={{ ...S.dot, background: AMBER }} /> almost
+          </span>
+          <span style={S.legendItem}>
+            <i style={{ ...S.dot, background: 'rgba(0,0,0,0.18)' }} /> no data
+          </span>
         </section>
       </div>
 
@@ -215,18 +234,31 @@ export default function StepsTracker({ id }) {
               {draft >= goal ? (
                 <span style={{ color: ACCENT }}>✓ Goal reached</span>
               ) : (
-                <span style={{ color: '#fbbf24' }}>◔ {fmt(Math.max(0, goal - Math.round(draft || 0)))} steps to goal</span>
+                <span style={{ color: '#fbbf24' }}>
+                  ◔ {fmt(Math.max(0, goal - Math.round(draft || 0)))} steps to goal
+                </span>
               )}
             </div>
 
             <div style={S.quickRow}>
-              <button style={S.quick} onClick={() => setDraft(goal)}>Set goal</button>
-              <button style={S.quick} onClick={() => setDraft((v) => (Number(v) || 0) + 1000)}>+1000</button>
-              <button style={S.quick} onClick={() => setDraft((v) => Math.max(0, (Number(v) || 0) - 1000))}>−1000</button>
+              <button style={S.quick} onClick={() => setDraft(goal)}>
+                Set goal
+              </button>
+              <button style={S.quick} onClick={() => setDraft((v) => (Number(v) || 0) + 1000)}>
+                +1000
+              </button>
+              <button
+                style={S.quick}
+                onClick={() => setDraft((v) => Math.max(0, (Number(v) || 0) - 1000))}
+              >
+                −1000
+              </button>
             </div>
 
             <div style={S.editorActions}>
-              <button style={S.clear} onClick={() => setDraft(0)}>Clear</button>
+              <button style={S.clear} onClick={() => setDraft(0)}>
+                Clear
+              </button>
               <button
                 style={S.save}
                 onClick={saveDraft}
@@ -266,43 +298,86 @@ const thumbCss = `
 
 const S = {
   page: {
-    position: 'relative', width: '100vw', minHeight: '100vh', height: '100vh',
-    background: 'white', overflowY: 'auto', color: 'black',
+    position: 'relative',
+    width: '100vw',
+    minHeight: '100vh',
+    height: '100vh',
+    background: 'white',
+    overflowY: 'auto',
+    color: 'black',
     fontFamily: "'Inter', system-ui, sans-serif",
   },
   back: {
-    position: 'absolute', top: '28px', left: '28px', background: 'none', border: 'none',
-    color: 'rgba(0,0,0,0.25)', fontSize: '0.65rem', letterSpacing: '0.18em',
-    textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit', zIndex: 20,
-    transition: 'color 0.2s', padding: 0,
+    position: 'absolute',
+    top: '28px',
+    left: '28px',
+    background: 'none',
+    border: 'none',
+    color: 'rgba(0,0,0,0.25)',
+    fontSize: '0.65rem',
+    letterSpacing: '0.18em',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    zIndex: 20,
+    transition: 'color 0.2s',
+    padding: 0,
   },
   inner: {
-    maxWidth: '720px', margin: '0 auto', padding: '96px 24px 64px',
-    display: 'flex', flexDirection: 'column', gap: '56px',
+    maxWidth: '720px',
+    margin: '0 auto',
+    padding: '96px 24px 64px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '56px',
   },
 
   goalSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '22px' },
   eyebrow: {
-    fontSize: '0.65rem', letterSpacing: '0.3em', textTransform: 'uppercase',
-    color: 'rgba(0,0,0,0.4)', fontWeight: 300,
+    fontSize: '0.65rem',
+    letterSpacing: '0.3em',
+    textTransform: 'uppercase',
+    color: 'rgba(0,0,0,0.4)',
+    fontWeight: 300,
   },
   counter: {
-    fontSize: '4rem', fontWeight: 200, letterSpacing: '0.02em', lineHeight: 1,
-    color: '#0f172a', display: 'flex', alignItems: 'flex-end', gap: '14px',
+    fontSize: '4rem',
+    fontWeight: 200,
+    letterSpacing: '0.02em',
+    lineHeight: 1,
+    color: '#0f172a',
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '14px',
   },
   counterUnit: {
-    fontSize: '0.8rem', fontWeight: 400, letterSpacing: '0.06em',
-    color: 'rgba(0,0,0,0.35)', paddingBottom: '8px',
+    fontSize: '0.8rem',
+    fontWeight: 400,
+    letterSpacing: '0.06em',
+    color: 'rgba(0,0,0,0.35)',
+    paddingBottom: '8px',
   },
   chips: { display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' },
   chip: {
-    background: 'transparent', border: '1px solid rgba(0,0,0,0.15)',
-    color: 'rgba(0,0,0,0.55)', borderRadius: '999px', padding: '7px 16px',
-    fontSize: '0.8rem', letterSpacing: '0.04em', cursor: 'pointer', fontFamily: 'inherit',
+    background: 'transparent',
+    border: '1px solid rgba(0,0,0,0.15)',
+    color: 'rgba(0,0,0,0.55)',
+    borderRadius: '999px',
+    padding: '7px 16px',
+    fontSize: '0.8rem',
+    letterSpacing: '0.04em',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
     transition: 'all 0.15s',
   },
   chipActive: { background: ACCENT, borderColor: ACCENT, color: '#0f172a', fontWeight: 600 },
-  sliderWrap: { display: 'flex', alignItems: 'center', gap: '14px', width: '100%', maxWidth: '440px' },
+  sliderWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    width: '100%',
+    maxWidth: '440px',
+  },
   slider: { flex: 1 },
   sliderEnd: { fontSize: '0.65rem', letterSpacing: '0.1em', color: 'rgba(0,0,0,0.3)' },
 
@@ -312,31 +387,67 @@ const S = {
   range: { fontSize: '1rem', fontWeight: 300, letterSpacing: '0.04em', color: '#0f172a' },
   weekState: { fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase' },
   arrow: {
-    background: 'transparent', border: `1px solid ${ACCENT_DIM}`,
-    color: ACCENT_DIM, width: '38px', height: '38px', borderRadius: '12px',
-    fontSize: '1.2rem', cursor: 'pointer', fontFamily: 'inherit',
+    background: 'transparent',
+    border: `1px solid ${ACCENT_DIM}`,
+    color: ACCENT_DIM,
+    width: '38px',
+    height: '38px',
+    borderRadius: '12px',
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   grid: {
-    display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '8px',
     transition: 'opacity 0.3s, filter 0.3s',
   },
   gridFinished: { opacity: 0.42, filter: 'saturate(0.6)' },
   cell: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-    background: 'rgba(0,0,0,0.02)', borderRadius: '14px', padding: '12px 4px',
-    fontFamily: 'inherit', color: 'inherit', transition: 'all 0.15s',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(0,0,0,0.02)',
+    borderRadius: '14px',
+    padding: '12px 4px',
+    fontFamily: 'inherit',
+    color: 'inherit',
+    transition: 'all 0.15s',
   },
-  cellDow: { fontSize: '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)' },
+  cellDow: {
+    fontSize: '0.58rem',
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: 'rgba(0,0,0,0.4)',
+  },
   cellNum: { fontSize: '0.95rem', fontWeight: 300, color: '#0f172a' },
   mark: {
-    width: '26px', height: '26px', borderRadius: '50%', display: 'flex',
-    alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700,
+    width: '26px',
+    height: '26px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.8rem',
+    fontWeight: 700,
   },
-  cellSteps: { fontSize: '0.55rem', color: 'rgba(0,0,0,0.4)', minHeight: '0.7rem', letterSpacing: '0.02em' },
+  cellSteps: {
+    fontSize: '0.55rem',
+    color: 'rgba(0,0,0,0.4)',
+    minHeight: '0.7rem',
+    letterSpacing: '0.02em',
+  },
 
   legend: {
-    display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap',
-    fontSize: '0.65rem', letterSpacing: '0.1em', color: 'rgba(0,0,0,0.45)',
+    display: 'flex',
+    gap: '24px',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    fontSize: '0.65rem',
+    letterSpacing: '0.1em',
+    color: 'rgba(0,0,0,0.45)',
     textTransform: 'uppercase',
   },
   legendItem: { display: 'flex', alignItems: 'center', gap: '8px' },
@@ -344,36 +455,86 @@ const S = {
 
   // Day editor — matches the home page's ManageMetrics dark modal
   overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30,
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.65)',
+    backdropFilter: 'blur(6px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 30,
   },
   editor: {
-    background: '#0d1526', border: `1px solid ${ACCENT_DIM}`, borderRadius: '16px',
-    padding: '28px', width: '320px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '18px',
+    background: '#0d1526',
+    border: `1px solid ${ACCENT_DIM}`,
+    borderRadius: '16px',
+    padding: '28px',
+    width: '320px',
+    maxWidth: '90vw',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '18px',
     boxShadow: '0 0 40px rgba(45,212,191,0.08)',
   },
-  editorTitle: { fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: ACCENT, fontWeight: 600 },
+  editorTitle: {
+    fontSize: '0.7rem',
+    letterSpacing: '0.15em',
+    textTransform: 'uppercase',
+    color: ACCENT,
+    fontWeight: 600,
+  },
   input: {
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px',
-    color: 'white', fontSize: '1.6rem', fontWeight: 200, padding: '12px 16px', textAlign: 'center',
-    fontFamily: 'inherit', width: '100%', outline: 'none',
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '12px',
+    color: 'white',
+    fontSize: '1.6rem',
+    fontWeight: 200,
+    padding: '12px 16px',
+    textAlign: 'center',
+    fontFamily: 'inherit',
+    width: '100%',
+    outline: 'none',
   },
   hint: { textAlign: 'center', fontSize: '0.8rem', letterSpacing: '0.03em' },
   quickRow: { display: 'flex', gap: '8px' },
   quick: {
-    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    color: 'rgba(255,255,255,0.8)', borderRadius: '10px', padding: '9px 0', fontSize: '0.72rem',
-    cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.03em',
+    flex: 1,
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: 'rgba(255,255,255,0.8)',
+    borderRadius: '10px',
+    padding: '9px 0',
+    fontSize: '0.72rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.03em',
   },
   editorActions: { display: 'flex', gap: '8px', marginTop: '4px' },
   clear: {
-    flex: 1, background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
-    color: 'rgba(255,255,255,0.5)', borderRadius: '10px', padding: '11px 0', fontSize: '0.8rem',
-    cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em',
+    flex: 1,
+    background: 'transparent',
+    border: '1px solid rgba(255,255,255,0.12)',
+    color: 'rgba(255,255,255,0.5)',
+    borderRadius: '10px',
+    padding: '11px 0',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.04em',
   },
   save: {
-    flex: 2, background: ACCENT_DIM, border: 'none', color: 'white', borderRadius: '10px',
-    padding: '11px 0', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-    letterSpacing: '0.04em', transition: 'background 0.15s',
+    flex: 2,
+    background: ACCENT_DIM,
+    border: 'none',
+    color: 'white',
+    borderRadius: '10px',
+    padding: '11px 0',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.04em',
+    transition: 'background 0.15s',
   },
 };

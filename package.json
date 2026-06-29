@@ -2,6 +2,11 @@
   "name": "morning-start",
   "version": "1.0.0",
   "scripts": {
-    "start": "(cd backend && node server.js) & (cd frontend && npm run dev)"
+    "start": "(cd backend && node server.js) & (cd frontend && npm run dev)",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "3.9.3"
   }
 }

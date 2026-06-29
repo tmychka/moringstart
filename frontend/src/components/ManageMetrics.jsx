@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { createMetric, updateMetric, deleteMetric } from '../api';
 
 export default function ManageMetrics({ metrics, onClose, onReload }) {
-  const [newName, setNewName]   = useState('');
-  const [editId, setEditId]     = useState(null);
+  const [newName, setNewName] = useState('');
+  const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState('');
 
   const handleAdd = async () => {
@@ -34,7 +34,7 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
     <div
       className="absolute inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         style={{
@@ -52,22 +52,49 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: '#2dd4bf', fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600 }}>
+          <span
+            style={{
+              color: '#2dd4bf',
+              fontSize: '0.7rem',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+            }}
+          >
             Metrics
           </span>
           <button
             onClick={onClose}
-            style={{ color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 0 }}
-            onMouseEnter={e => e.currentTarget.style.color = 'white'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
+            style={{
+              color: 'rgba(255,255,255,0.35)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '1.1rem',
+              lineHeight: 1,
+              padding: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'white')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
           >
             ✕
           </button>
         </div>
 
         {/* List */}
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-          {metrics.map(m => (
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 0,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            flex: 1,
+          }}
+        >
+          {metrics.map((m) => (
             <MetricRow
               key={m.id}
               metric={m}
@@ -81,7 +108,14 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
             />
           ))}
           {metrics.length === 0 && (
-            <li style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', textAlign: 'center', padding: '12px 0' }}>
+            <li
+              style={{
+                color: 'rgba(255,255,255,0.3)',
+                fontSize: '0.8rem',
+                textAlign: 'center',
+                padding: '12px 0',
+              }}
+            >
               No metrics yet
             </li>
           )}
@@ -91,16 +125,16 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
         <div style={{ display: 'flex', gap: '8px' }}>
           <input
             value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             placeholder="New metric…"
             style={inputStyle}
           />
           <button
             onClick={handleAdd}
             style={addBtnStyle}
-            onMouseEnter={e => e.currentTarget.style.background = '#2dd4bf'}
-            onMouseLeave={e => e.currentTarget.style.background = '#134e4a'}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#2dd4bf')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#134e4a')}
           >
             Add
           </button>
@@ -110,7 +144,16 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
   );
 }
 
-function MetricRow({ metric, isEditing, editName, onEditNameChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete }) {
+function MetricRow({
+  metric,
+  isEditing,
+  editName,
+  onEditNameChange,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+}) {
   const [hover, setHover] = useState(false);
 
   return (
@@ -123,25 +166,53 @@ function MetricRow({ metric, isEditing, editName, onEditNameChange, onStartEdit,
         <>
           <input
             value={editName}
-            onChange={e => onEditNameChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
+            onChange={(e) => onEditNameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onSaveEdit();
+              if (e.key === 'Escape') onCancelEdit();
+            }}
             autoFocus
             style={{ ...inputStyle, flex: 1, fontSize: '0.82rem' }}
           />
-          <button onClick={onSaveEdit} style={actionBtnStyle('#2dd4bf')}>Save</button>
-          <button onClick={onCancelEdit} style={actionBtnStyle('rgba(255,255,255,0.3)')}>✕</button>
+          <button onClick={onSaveEdit} style={actionBtnStyle('#2dd4bf')}>
+            Save
+          </button>
+          <button onClick={onCancelEdit} style={actionBtnStyle('rgba(255,255,255,0.3)')}>
+            ✕
+          </button>
         </>
       ) : (
         <>
-          <span style={{ flex: 1, fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', fontWeight: 300 }}>{metric.name}</span>
+          <span
+            style={{
+              flex: 1,
+              fontSize: '0.85rem',
+              color: 'rgba(255,255,255,0.8)',
+              fontWeight: 300,
+            }}
+          >
+            {metric.name}
+          </span>
           <button
             onClick={onStartEdit}
-            style={{ ...actionBtnStyle('#2dd4bf'), opacity: hover ? 1 : 0, transition: 'opacity 0.15s' }}
-          >Edit</button>
+            style={{
+              ...actionBtnStyle('#2dd4bf'),
+              opacity: hover ? 1 : 0,
+              transition: 'opacity 0.15s',
+            }}
+          >
+            Edit
+          </button>
           <button
             onClick={onDelete}
-            style={{ ...actionBtnStyle('#f87171'), opacity: hover ? 1 : 0, transition: 'opacity 0.15s' }}
-          >Del</button>
+            style={{
+              ...actionBtnStyle('#f87171'),
+              opacity: hover ? 1 : 0,
+              transition: 'opacity 0.15s',
+            }}
+          >
+            Del
+          </button>
         </>
       )}
     </li>

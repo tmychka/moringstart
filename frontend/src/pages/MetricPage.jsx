@@ -10,7 +10,15 @@ export default function MetricPage() {
   if (id === '4') return <StepsTracker id={id} />;
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#0a0f1e', overflow: 'hidden' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: '100vw',
+        height: '100vh',
+        background: '#0a0f1e',
+        overflow: 'hidden',
+      }}
+    >
       {/* Subtle back navigation */}
       <button
         onClick={() => navigate('/')}
@@ -30,8 +38,8 @@ export default function MetricPage() {
           transition: 'color 0.2s',
           padding: 0,
         }}
-        onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
-        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.15)'}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.6)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.15)')}
       >
         ← Back
       </button>

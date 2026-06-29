@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { getSteps, saveSteps } from '../api';
 import { fmt, toKey } from '../stepsUtil';
 
-const ACCENT = '#2dd4bf';  // teal — goal reached
-const AMBER = '#f59e0b';   // almost there
+const ACCENT = '#2dd4bf'; // teal — goal reached
+const AMBER = '#f59e0b'; // almost there
 
 // Compact "log today's steps" card shown under the steps metric label on hover.
 export default function StepsQuickPanel({ id, isLeft }) {

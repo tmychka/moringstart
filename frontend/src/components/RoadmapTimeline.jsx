@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  getRoadmap,
-  createMilestone,
-  updateMilestone,
-  deleteMilestone,
-} from '../api';
+import { getRoadmap, createMilestone, updateMilestone, deleteMilestone } from '../api';
 
 const BLUE = '#2563eb';
 const TEXT = '#374151';
@@ -14,9 +9,9 @@ const GREEN = '#16a34a';
 const FONT = '-apple-system, "Segoe UI", Roboto, system-ui, sans-serif';
 
 const STATUS_META = {
-  upcoming:    { label: 'Upcoming',    color: MUTED, ring: '#cbd5e1' },
-  in_progress: { label: 'In progress', color: BLUE,  ring: BLUE },
-  done:        { label: 'Done',        color: GREEN, ring: GREEN },
+  upcoming: { label: 'Upcoming', color: MUTED, ring: '#cbd5e1' },
+  in_progress: { label: 'In progress', color: BLUE, ring: BLUE },
+  done: { label: 'Done', color: GREEN, ring: GREEN },
 };
 const STATUS_ORDER = ['upcoming', 'in_progress', 'done'];
 
@@ -26,15 +21,15 @@ const slotLeft = (index, n) => (n <= 1 ? 50 : 6 + (index / (n - 1)) * 88);
 
 export default function RoadmapTimeline({ id }) {
   const [milestones, setMilestones] = useState([]);
-  const [order, setOrder] = useState([]);          // milestone ids, in sequence
+  const [order, setOrder] = useState([]); // milestone ids, in sequence
   const [loaded, setLoaded] = useState(false);
-  const [openId, setOpenId] = useState(null);       // milestone whose menu is open
+  const [openId, setOpenId] = useState(null); // milestone whose menu is open
   const [titleDraft, setTitleDraft] = useState('');
   const [draggingId, setDraggingId] = useState(null);
-  const [dragPct, setDragPct] = useState(null);     // live pointer % for dragged node
+  const [dragPct, setDragPct] = useState(null); // live pointer % for dragged node
 
   const trackRef = useRef(null);
-  const dragState = useRef(null);                   // { id, startX, moved }
+  const dragState = useRef(null); // { id, startX, moved }
 
   useEffect(() => {
     getRoadmap(id).then((rows) => {
@@ -86,7 +81,7 @@ export default function RoadmapTimeline({ id }) {
       prev.map((m) => {
         const i = seq.indexOf(m.id);
         return i >= 0 && m.position !== i ? { ...m, position: i } : m;
-      })
+      }),
     );
   };
 
@@ -112,7 +107,10 @@ export default function RoadmapTimeline({ id }) {
   const openMenu = (mid) => {
     setOpenId((cur) => {
       const next = cur === mid ? null : mid;
-      if (next) { const m = byId(mid); setTitleDraft(m ? m.title : ''); }
+      if (next) {
+        const m = byId(mid);
+        setTitleDraft(m ? m.title : '');
+      }
       return next;
     });
   };
@@ -163,7 +161,9 @@ export default function RoadmapTimeline({ id }) {
   const onNodePointerUp = (e, mid) => {
     const st = dragState.current;
     dragState.current = null;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
     if (!st) return;
     if (st.moved) {
       setDraggingId(null);
@@ -215,7 +215,13 @@ export default function RoadmapTimeline({ id }) {
       <div ref={trackRef} style={styles.track} role="group" aria-label="Timeline track">
         {/* base + progress line */}
         <div style={styles.baseLine} />
-        <div style={{ ...styles.fillLine, width: `${fillPct}%`, transition: draggingId ? 'none' : 'width .45s ease' }} />
+        <div
+          style={{
+            ...styles.fillLine,
+            width: `${fillPct}%`,
+            transition: draggingId ? 'none' : 'width .45s ease',
+          }}
+        />
 
         {loaded && n === 0 && (
           <p style={styles.emptyHint}>No events yet — add your first one with “Add task”.</p>
@@ -263,7 +269,8 @@ export default function RoadmapTimeline({ id }) {
                 style={{
                   ...styles.marker,
                   borderColor: meta.ring,
-                  background: m.status === 'done' ? GREEN : m.status === 'in_progress' ? BLUE : '#fff',
+                  background:
+                    m.status === 'done' ? GREEN : m.status === 'in_progress' ? BLUE : '#fff',
                   cursor: isDragging ? 'grabbing' : 'grab',
                   transform: isCurrent ? 'translateX(-50%) scale(1.12)' : 'translateX(-50%)',
                 }}
@@ -277,9 +284,11 @@ export default function RoadmapTimeline({ id }) {
                 <div
                   style={{
                     ...styles.menu,
-                    ...(left > 80 ? { left: 'auto', right: 0, transform: 'none' }
-                      : left < 20 ? { left: 0, transform: 'none' }
-                      : {}),
+                    ...(left > 80
+                      ? { left: 'auto', right: 0, transform: 'none' }
+                      : left < 20
+                        ? { left: 0, transform: 'none' }
+                        : {}),
                   }}
                   role="dialog"
                   aria-label={`Edit ${m.title}`}
@@ -291,8 +300,14 @@ export default function RoadmapTimeline({ id }) {
                     onChange={(e) => setTitleDraft(e.target.value)}
                     onBlur={() => commitTitle(m)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') { commitTitle(m); setOpenId(null); }
-                      if (e.key === 'Escape') { setTitleDraft(m.title); setOpenId(null); }
+                      if (e.key === 'Enter') {
+                        commitTitle(m);
+                        setOpenId(null);
+                      }
+                      if (e.key === 'Escape') {
+                        setTitleDraft(m.title);
+                        setOpenId(null);
+                      }
                     }}
                     placeholder="Task title"
                     style={styles.menuInput}
@@ -320,7 +335,12 @@ export default function RoadmapTimeline({ id }) {
                     })}
                   </div>
                   <div style={styles.menuFooter}>
-                    <button type="button" onClick={() => remove(m.id)} style={styles.deleteBtn} className="rt-delete">
+                    <button
+                      type="button"
+                      onClick={() => remove(m.id)}
+                      style={styles.deleteBtn}
+                      className="rt-delete"
+                    >
                       Delete
                     </button>
                     <button type="button" onClick={() => setOpenId(null)} style={styles.doneBtn}>
@@ -339,8 +359,17 @@ export default function RoadmapTimeline({ id }) {
 
 function CheckIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"
-         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#fff"
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -381,17 +410,36 @@ const styles = {
   sub: { margin: '3px 0 0', fontSize: '0.82rem', color: MUTED },
   headerRight: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   progressPill: {
-    display: 'inline-flex', alignItems: 'center', gap: 7,
-    background: '#f0f9ff', color: '#0369a1',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    background: '#f0f9ff',
+    color: '#0369a1',
     border: '1px solid #e0f2fe',
-    borderRadius: 999, padding: '5px 12px',
-    fontSize: '0.78rem', fontWeight: 500, whiteSpace: 'nowrap',
+    borderRadius: 999,
+    padding: '5px 12px',
+    fontSize: '0.78rem',
+    fontWeight: 500,
+    whiteSpace: 'nowrap',
   },
-  progressDot: { width: 7, height: 7, borderRadius: '50%', background: GREEN, display: 'inline-block' },
+  progressDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    background: GREEN,
+    display: 'inline-block',
+  },
   addBtn: {
-    background: BLUE, color: '#fff', border: 'none', borderRadius: 9,
-    padding: '8px 14px', fontSize: '0.83rem', fontWeight: 500,
-    cursor: 'pointer', fontFamily: 'inherit', transition: 'background .15s',
+    background: BLUE,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 9,
+    padding: '8px 14px',
+    fontSize: '0.83rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'background .15s',
   },
   track: {
     position: 'relative',
@@ -400,67 +448,142 @@ const styles = {
     marginTop: 8,
   },
   baseLine: {
-    position: 'absolute', left: 0, right: 0, top: 61, height: 4,
-    background: '#eef2f6', borderRadius: 999, pointerEvents: 'none', zIndex: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 61,
+    height: 4,
+    background: '#eef2f6',
+    borderRadius: 999,
+    pointerEvents: 'none',
+    zIndex: 2,
   },
   fillLine: {
-    position: 'absolute', left: 0, top: 61, height: 4,
+    position: 'absolute',
+    left: 0,
+    top: 61,
+    height: 4,
     background: `linear-gradient(90deg, ${BLUE}, #3b82f6)`,
-    borderRadius: 999, pointerEvents: 'none', zIndex: 3,
+    borderRadius: 999,
+    pointerEvents: 'none',
+    zIndex: 3,
   },
   emptyHint: {
-    position: 'absolute', left: '50%', top: 78, transform: 'translateX(-50%)',
-    margin: 0, color: MUTED, fontSize: '0.82rem', textAlign: 'center',
-    width: '90%', pointerEvents: 'none',
+    position: 'absolute',
+    left: '50%',
+    top: 78,
+    transform: 'translateX(-50%)',
+    margin: 0,
+    color: MUTED,
+    fontSize: '0.82rem',
+    textAlign: 'center',
+    width: '90%',
+    pointerEvents: 'none',
   },
   nodeWrap: { position: 'absolute', top: 0, height: '100%' },
   marker: {
-    position: 'absolute', top: 63, left: 0, transform: 'translateX(-50%)',
-    width: 22, height: 22, borderRadius: '50%',
-    border: '2.5px solid', padding: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute',
+    top: 63,
+    left: 0,
+    transform: 'translateX(-50%)',
+    width: 22,
+    height: 22,
+    borderRadius: '50%',
+    border: '2.5px solid',
+    padding: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     boxShadow: '0 1px 3px rgba(16,24,40,0.18)',
     transition: 'transform .2s, background .25s, border-color .25s',
   },
   innerDot: { width: 7, height: 7, borderRadius: '50%', background: '#fff' },
   tick: {
-    position: 'absolute', left: 0, top: 50, width: 1.5, height: 12,
-    background: BORDER, transform: 'translateX(-50%)', pointerEvents: 'none',
+    position: 'absolute',
+    left: 0,
+    top: 50,
+    width: 1.5,
+    height: 12,
+    background: BORDER,
+    transform: 'translateX(-50%)',
+    pointerEvents: 'none',
   },
   label: {
-    position: 'absolute', left: 0, top: 16, transform: 'translateX(-50%)',
-    maxWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-    fontSize: '0.78rem', fontWeight: 500,
-    background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 7,
-    padding: '4px 9px', boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
+    position: 'absolute',
+    left: 0,
+    top: 16,
+    transform: 'translateX(-50%)',
+    maxWidth: 130,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    fontSize: '0.78rem',
+    fontWeight: 500,
+    background: '#fff',
+    border: `1px solid ${BORDER}`,
+    borderRadius: 7,
+    padding: '4px 9px',
+    boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
     pointerEvents: 'none',
   },
   menu: {
-    position: 'absolute', top: 92, left: 0, transform: 'translateX(-50%)',
-    width: 232, background: '#fff', border: `1px solid ${BORDER}`,
-    borderRadius: 12, padding: 12, zIndex: 80,
+    position: 'absolute',
+    top: 92,
+    left: 0,
+    transform: 'translateX(-50%)',
+    width: 232,
+    background: '#fff',
+    border: `1px solid ${BORDER}`,
+    borderRadius: 12,
+    padding: 12,
+    zIndex: 80,
     boxShadow: '0 12px 32px rgba(16,24,40,0.16)',
   },
   menuInput: {
-    width: '100%', boxSizing: 'border-box', padding: '8px 10px',
-    border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: '0.85rem',
-    fontFamily: 'inherit', color: TEXT, outline: 'none', marginBottom: 10,
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '8px 10px',
+    border: `1px solid ${BORDER}`,
+    borderRadius: 8,
+    fontSize: '0.85rem',
+    fontFamily: 'inherit',
+    color: TEXT,
+    outline: 'none',
+    marginBottom: 10,
   },
   statusRow: { display: 'flex', gap: 6, marginBottom: 10 },
   statusBtn: {
-    flex: 1, padding: '6px 4px', borderRadius: 7, border: '1px solid',
-    fontSize: '0.72rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-    transition: 'all .15s', whiteSpace: 'nowrap',
+    flex: 1,
+    padding: '6px 4px',
+    borderRadius: 7,
+    border: '1px solid',
+    fontSize: '0.72rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all .15s',
+    whiteSpace: 'nowrap',
   },
   menuFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   deleteBtn: {
-    background: 'none', border: 'none', color: MUTED,
-    fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit',
-    padding: '5px 8px', borderRadius: 6,
+    background: 'none',
+    border: 'none',
+    color: MUTED,
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    padding: '5px 8px',
+    borderRadius: 6,
   },
   doneBtn: {
-    background: '#f3f4f6', border: 'none', color: TEXT,
-    fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-    padding: '6px 14px', borderRadius: 7,
+    background: '#f3f4f6',
+    border: 'none',
+    color: TEXT,
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    padding: '6px 14px',
+    borderRadius: 7,
   },
 };

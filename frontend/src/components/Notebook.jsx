@@ -13,8 +13,11 @@ const fmtDate = (s) => {
   if (!s) return '';
   const d = new Date(s.replace(' ', 'T') + 'Z');
   return d.toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 };
 
@@ -22,10 +25,10 @@ export default function Notebook({ id }) {
   const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [newContent, setNewContent] = useState('');
-  const [editingId, setEditingId] = useState(null);   // note being text-edited
+  const [editingId, setEditingId] = useState(null); // note being text-edited
   const [editDraft, setEditDraft] = useState('');
-  const [linkModeId, setLinkModeId] = useState(null);  // note with "Edit links" on
-  const [activeWord, setActiveWord] = useState(null);  // { noteId, wordIndex, draft }
+  const [linkModeId, setLinkModeId] = useState(null); // note with "Edit links" on
+  const [activeWord, setActiveWord] = useState(null); // { noteId, wordIndex, draft }
 
   useEffect(() => {
     getNotes(id).then(setNotes);
@@ -198,7 +201,15 @@ export default function Notebook({ id }) {
   );
 }
 
-function NoteBody({ note, linkMode, activeWord, onWordClick, onDraftChange, onSaveLink, onCancelLink }) {
+function NoteBody({
+  note,
+  linkMode,
+  activeWord,
+  onWordClick,
+  onDraftChange,
+  onSaveLink,
+  onCancelLink,
+}) {
   const tokens = note.content.split(/(\s+)/);
   let wordIndex = -1;
 
@@ -209,8 +220,7 @@ function NoteBody({ note, linkMode, activeWord, onWordClick, onDraftChange, onSa
         wordIndex += 1;
         const wi = wordIndex;
         const url = note.links[wi];
-        const isActive =
-          activeWord && activeWord.noteId === note.id && activeWord.wordIndex === wi;
+        const isActive = activeWord && activeWord.noteId === note.id && activeWord.wordIndex === wi;
 
         const editor = isActive && (
           <span style={styles.popover}>
@@ -225,8 +235,12 @@ function NoteBody({ note, linkMode, activeWord, onWordClick, onDraftChange, onSa
               placeholder="https://…  (empty to remove)"
               style={styles.popoverInput}
             />
-            <button onClick={onSaveLink} style={styles.popoverSave}>Save</button>
-            <button onClick={onCancelLink} style={styles.popoverCancel}>✕</button>
+            <button onClick={onSaveLink} style={styles.popoverSave}>
+              Save
+            </button>
+            <button onClick={onCancelLink} style={styles.popoverCancel}>
+              ✕
+            </button>
           </span>
         );
 

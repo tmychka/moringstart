@@ -24,7 +24,9 @@ app.post('/metrics', (req, res) => {
 app.put('/metrics/:id', (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
-  const info = db.prepare('UPDATE metrics SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
+  const info = db
+    .prepare('UPDATE metrics SET name = ? WHERE id = ?')
+    .run(name.trim(), req.params.id);
   if (info.changes === 0) return res.status(404).json({ error: 'not found' });
   const row = db.prepare('SELECT * FROM metrics WHERE id = ?').get(req.params.id);
   res.json(row);
@@ -54,10 +56,12 @@ app.put('/metrics/:id/goal', (req, res) => {
   if (!Number.isInteger(goal) || goal < 1000 || goal > 20000) {
     return res.status(400).json({ error: 'goal must be an integer between 1000 and 20000' });
   }
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO step_goals (metric_id, goal) VALUES (?, ?)
     ON CONFLICT(metric_id) DO UPDATE SET goal = excluded.goal
-  `).run(metricId, goal);
+  `,
+  ).run(metricId, goal);
   res.json({ goal });
 });
 
@@ -72,10 +76,12 @@ app.put('/metrics/:id/steps', (req, res) => {
     return res.status(400).json({ error: 'steps must be a non-negative integer' });
   }
   if (steps > 0) {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO step_entries (metric_id, date, steps) VALUES (?, ?, ?)
       ON CONFLICT(metric_id, date) DO UPDATE SET steps = excluded.steps
-    `).run(metricId, date, steps);
+    `,
+    ).run(metricId, date, steps);
   } else {
     db.prepare('DELETE FROM step_entries WHERE metric_id = ? AND date = ?').run(metricId, date);
   }
@@ -88,7 +94,9 @@ const parseNote = (row) => ({ ...row, links: JSON.parse(row.links || '{}') });
 
 app.get('/metrics/:id/notes', (req, res) => {
   const metricId = Number(req.params.id);
-  const rows = db.prepare('SELECT * FROM notes WHERE metric_id = ? ORDER BY created_at DESC').all(metricId);
+  const rows = db
+    .prepare('SELECT * FROM notes WHERE metric_id = ? ORDER BY created_at DESC')
+    .all(metricId);
   res.json(rows.map(parseNote));
 });
 
@@ -96,7 +104,9 @@ app.post('/metrics/:id/notes', (req, res) => {
   const metricId = Number(req.params.id);
   const { content } = req.body;
   if (!content || !content.trim()) return res.status(400).json({ error: 'content required' });
-  const info = db.prepare('INSERT INTO notes (metric_id, content) VALUES (?, ?)').run(metricId, content.trim());
+  const info = db
+    .prepare('INSERT INTO notes (metric_id, content) VALUES (?, ?)')
+    .run(metricId, content.trim());
   const row = db.prepare('SELECT * FROM notes WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json(parseNote(row));
 });
@@ -137,7 +147,9 @@ const clampPosition = (n) => Math.min(100, Math.max(0, n));
 
 app.get('/metrics/:id/roadmap', (req, res) => {
   const metricId = Number(req.params.id);
-  const rows = db.prepare('SELECT * FROM roadmap_milestones WHERE metric_id = ? ORDER BY position ASC').all(metricId);
+  const rows = db
+    .prepare('SELECT * FROM roadmap_milestones WHERE metric_id = ? ORDER BY position ASC')
+    .all(metricId);
   res.json(rows);
 });
 
@@ -151,7 +163,8 @@ app.post('/metrics/:id/roadmap', (req, res) => {
     if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
     pos = clampPosition(n);
   }
-  const info = db.prepare('INSERT INTO roadmap_milestones (metric_id, title, position) VALUES (?, ?, ?)')
+  const info = db
+    .prepare('INSERT INTO roadmap_milestones (metric_id, title, position) VALUES (?, ?, ?)')
     .run(metricId, title.trim(), pos);
   const row = db.prepare('SELECT * FROM roadmap_milestones WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json(row);
@@ -175,26 +188,32 @@ app.put('/metrics/:id/roadmap/:milestoneId', (req, res) => {
     values.push(clampPosition(n));
   }
   if (status !== undefined) {
-    if (!ROADMAP_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid status' });
+    if (!ROADMAP_STATUSES.includes(status))
+      return res.status(400).json({ error: 'invalid status' });
     sets.push('status = ?');
     values.push(status);
   }
   if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
   // Enforce a single current (in_progress) node per metric.
   if (status === 'in_progress') {
-    db.prepare("UPDATE roadmap_milestones SET status = 'upcoming' WHERE metric_id = ? AND status = 'in_progress' AND id <> ?")
-      .run(metricId, milestoneId);
+    db.prepare(
+      "UPDATE roadmap_milestones SET status = 'upcoming' WHERE metric_id = ? AND status = 'in_progress' AND id <> ?",
+    ).run(metricId, milestoneId);
   }
   sets.push("updated_at = datetime('now')");
   values.push(milestoneId);
-  const info = db.prepare(`UPDATE roadmap_milestones SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  const info = db
+    .prepare(`UPDATE roadmap_milestones SET ${sets.join(', ')} WHERE id = ?`)
+    .run(...values);
   if (info.changes === 0) return res.status(404).json({ error: 'not found' });
   const row = db.prepare('SELECT * FROM roadmap_milestones WHERE id = ?').get(milestoneId);
   res.json(row);
 });
 
 app.delete('/metrics/:id/roadmap/:milestoneId', (req, res) => {
-  const info = db.prepare('DELETE FROM roadmap_milestones WHERE id = ?').run(req.params.milestoneId);
+  const info = db
+    .prepare('DELETE FROM roadmap_milestones WHERE id = ?')
+    .run(req.params.milestoneId);
   if (info.changes === 0) return res.status(404).json({ error: 'not found' });
   res.status(204).end();
 });

@@ -53,8 +53,15 @@ db.exec(`
 const count = db.prepare('SELECT COUNT(*) as c FROM metrics').get();
 if (count.c === 0) {
   const insert = db.prepare('INSERT INTO metrics (name) VALUES (?)');
-  ['Learn to code', 'Learn English', 'Training', 'Min 10,000 steps', 'No content', 'Not bad food', 'Quality sleep']
-    .forEach(name => insert.run(name));
+  [
+    'Learn to code',
+    'Learn English',
+    'Training',
+    'Min 10,000 steps',
+    'No content',
+    'Not bad food',
+    'Quality sleep',
+  ].forEach((name) => insert.run(name));
 }
 
 module.exports = db;

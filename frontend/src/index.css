@@ -15,7 +15,9 @@ body {
 }
 
 .metric-label {
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
 }
 
 .metric-label-hidden {
