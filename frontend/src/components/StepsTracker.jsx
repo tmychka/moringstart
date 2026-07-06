@@ -4,11 +4,18 @@ import { getSteps, saveGoal, saveSteps } from '../api';
 import { fmt, toKey } from '../stepsUtil';
 
 const ACCENT = '#2dd4bf'; // home page teal accent
-const ACCENT_DIM = '#134e4a'; // home page dim teal (borders)
 const AMBER = '#f59e0b';
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const sliderClass =
+  'flex-1 h-1 appearance-none rounded bg-black/10 outline-none ' +
+  '[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(45,212,191,0.18)] ' +
+  '[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-teal';
+
+const numberClass =
+  '[&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none';
 
 const startOfWeek = (d) => {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -84,38 +91,39 @@ export default function StepsTracker({ id }) {
   };
 
   return (
-    <div className="st-page" style={S.page}>
-      <style>{thumbCss}</style>
-
+    <div className="relative h-screen min-h-screen w-screen overflow-y-auto bg-white font-sans text-black">
       <button
         onClick={() => navigate('/')}
-        style={S.back}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(0,0,0,0.6)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(0,0,0,0.25)')}
+        className="absolute left-7 top-7 z-20 cursor-pointer border-none bg-transparent p-0 text-[0.65rem] uppercase tracking-[0.18em] text-black/25 transition-colors hover:text-black/60"
       >
         ← Back
       </button>
 
-      <div style={S.inner}>
+      <div className="mx-auto flex max-w-[720px] flex-col gap-14 px-6 pb-16 pt-24">
         {/* ---- Goal ---- */}
-        <section style={S.goalSection}>
-          <div style={S.eyebrow}>Daily goal</div>
-          <div style={S.counter}>
+        <section className="flex flex-col items-center gap-[22px]">
+          <div className="text-[0.65rem] font-light uppercase tracking-[0.3em] text-black/40">
+            Daily goal
+          </div>
+          <div className="flex items-end gap-3.5 text-[4rem] font-extralight leading-none tracking-[0.02em] text-slate-900">
             {fmt(goal)}
-            <span style={S.counterUnit}>steps / day</span>
+            <span className="pb-2 text-[0.8rem] font-normal tracking-[0.06em] text-black/35">
+              steps / day
+            </span>
           </div>
 
-          <div style={S.chips}>
+          <div className="flex flex-wrap justify-center gap-2">
             {CHIPS.map((k) => {
               const active = goal === k * 1000;
               return (
                 <button
                   key={k}
                   onClick={() => commitGoal(k * 1000)}
-                  style={{
-                    ...S.chip,
-                    ...(active ? S.chipActive : null),
-                  }}
+                  className={`cursor-pointer rounded-full border px-4 py-[7px] text-[0.8rem] tracking-[0.04em] transition-all ${
+                    active
+                      ? 'border-teal bg-teal font-semibold text-slate-900'
+                      : 'border-black/15 bg-transparent text-black/55'
+                  }`}
                 >
                   {k}k
                 </button>
@@ -123,8 +131,8 @@ export default function StepsTracker({ id }) {
             })}
           </div>
 
-          <div style={S.sliderWrap}>
-            <span style={S.sliderEnd}>1k</span>
+          <div className="flex w-full max-w-[440px] items-center gap-3.5">
+            <span className="text-[0.65rem] tracking-[0.1em] text-black/30">1k</span>
             <input
               type="range"
               min={1}
@@ -134,35 +142,45 @@ export default function StepsTracker({ id }) {
               onChange={(e) => setGoal(Number(e.target.value) * 1000)}
               onMouseUp={(e) => commitGoal(Number(e.target.value) * 1000)}
               onTouchEnd={(e) => commitGoal(Number(e.target.value) * 1000)}
-              style={S.slider}
+              className={sliderClass}
             />
-            <span style={S.sliderEnd}>20k</span>
+            <span className="text-[0.65rem] tracking-[0.1em] text-black/30">20k</span>
           </div>
         </section>
 
         {/* ---- Week ---- */}
-        <section style={S.weekSection}>
-          <div style={S.weekHeader}>
-            <button style={S.arrow} onClick={() => setWeekOffset((o) => o - 1)}>
+        <section className="flex flex-col gap-[18px]">
+          <div className="flex items-center justify-between">
+            <button
+              className="h-[38px] w-[38px] cursor-pointer rounded-xl border border-teal-dim bg-transparent text-[1.2rem] text-teal-dim"
+              onClick={() => setWeekOffset((o) => o - 1)}
+            >
               ‹
             </button>
-            <div style={S.weekHeaderMid}>
-              <div style={S.range}>{rangeLabel}</div>
+            <div className="flex flex-col gap-1 text-center">
+              <div className="text-[1rem] font-light tracking-[0.04em] text-slate-900">
+                {rangeLabel}
+              </div>
               <div
-                style={{
-                  ...S.weekState,
-                  color: finished ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)',
-                }}
+                className="text-[0.6rem] uppercase tracking-[0.2em]"
+                style={{ color: finished ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)' }}
               >
                 {stateLabel}
               </div>
             </div>
-            <button style={S.arrow} onClick={() => setWeekOffset((o) => o + 1)}>
+            <button
+              className="h-[38px] w-[38px] cursor-pointer rounded-xl border border-teal-dim bg-transparent text-[1.2rem] text-teal-dim"
+              onClick={() => setWeekOffset((o) => o + 1)}
+            >
               ›
             </button>
           </div>
 
-          <div style={{ ...S.grid, ...(finished ? S.gridFinished : null) }}>
+          <div
+            className={`grid grid-cols-7 gap-2 transition-[opacity,filter] duration-300 ${
+              finished ? 'opacity-[0.42] [filter:saturate(0.6)]' : ''
+            }`}
+          >
             {days.map((d, i) => {
               const key = toKey(d);
               const isToday = key === todayKey;
@@ -176,25 +194,26 @@ export default function StepsTracker({ id }) {
                   key={key}
                   disabled={isFuture}
                   onClick={() => !isFuture && openEditor(d, key)}
-                  style={{
-                    ...S.cell,
-                    cursor: isFuture ? 'default' : 'pointer',
-                    opacity: isFuture ? 0.35 : 1,
-                    border: isToday ? '1px solid rgba(0,0,0,0.45)' : '1px solid rgba(0,0,0,0.08)',
-                  }}
+                  className={`flex flex-col items-center gap-2 rounded-[14px] bg-black/[0.02] px-1 py-3 transition-all ${
+                    isFuture ? 'cursor-default opacity-35' : 'cursor-pointer opacity-100'
+                  } ${isToday ? 'border border-black/45' : 'border border-black/[0.08]'}`}
                 >
-                  <span style={S.cellDow}>{WEEKDAYS[i]}</span>
-                  <span style={S.cellNum}>{d.getDate()}</span>
+                  <span className="text-[0.58rem] uppercase tracking-[0.12em] text-black/40">
+                    {WEEKDAYS[i]}
+                  </span>
+                  <span className="text-[0.95rem] font-light text-slate-900">{d.getDate()}</span>
                   <span
+                    className="flex h-[26px] w-[26px] items-center justify-center rounded-full text-[0.8rem] font-bold"
                     style={{
-                      ...S.mark,
                       color: status === 'none' ? c : '#0f172a',
                       background: status === 'none' ? 'rgba(0,0,0,0.05)' : c,
                     }}
                   >
                     {mark}
                   </span>
-                  <span style={S.cellSteps}>{entries[key] ? fmt(entries[key]) : ''}</span>
+                  <span className="min-h-[0.7rem] text-[0.55rem] tracking-[0.02em] text-black/40">
+                    {entries[key] ? fmt(entries[key]) : ''}
+                  </span>
                 </button>
               );
             })}
@@ -202,24 +221,32 @@ export default function StepsTracker({ id }) {
         </section>
 
         {/* ---- Legend ---- */}
-        <section style={S.legend}>
-          <span style={S.legendItem}>
-            <i style={{ ...S.dot, background: ACCENT }} /> goal reached
+        <section className="flex flex-wrap justify-center gap-6 text-[0.65rem] uppercase tracking-[0.1em] text-black/45">
+          <span className="flex items-center gap-2">
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-teal" /> goal reached
           </span>
-          <span style={S.legendItem}>
-            <i style={{ ...S.dot, background: AMBER }} /> almost
+          <span className="flex items-center gap-2">
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" /> almost
           </span>
-          <span style={S.legendItem}>
-            <i style={{ ...S.dot, background: 'rgba(0,0,0,0.18)' }} /> no data
+          <span className="flex items-center gap-2">
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-black/[0.18]" /> no data
           </span>
         </section>
       </div>
 
       {/* ---- Editor ---- */}
       {editing && (
-        <div style={S.overlay} onClick={() => setEditing(null)}>
-          <div style={S.editor} onClick={(e) => e.stopPropagation()}>
-            <div style={S.editorTitle}>{editing.label}</div>
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/65 [backdrop-filter:blur(6px)]"
+          onClick={() => setEditing(null)}
+        >
+          <div
+            className="flex w-80 max-w-[90vw] flex-col gap-[18px] rounded-2xl border border-teal-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(45,212,191,0.08)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-teal">
+              {editing.label}
+            </div>
 
             <input
               type="number"
@@ -227,43 +254,50 @@ export default function StepsTracker({ id }) {
               value={draft}
               onChange={(e) => setDraft(Number(e.target.value))}
               autoFocus
-              style={S.input}
+              className={`w-full rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-center text-[1.6rem] font-extralight text-white outline-none ${numberClass}`}
             />
 
-            <div style={S.hint}>
+            <div className="text-center text-[0.8rem] tracking-[0.03em]">
               {draft >= goal ? (
-                <span style={{ color: ACCENT }}>✓ Goal reached</span>
+                <span className="text-teal">✓ Goal reached</span>
               ) : (
-                <span style={{ color: '#fbbf24' }}>
+                <span className="text-amber-400">
                   ◔ {fmt(Math.max(0, goal - Math.round(draft || 0)))} steps to goal
                 </span>
               )}
             </div>
 
-            <div style={S.quickRow}>
-              <button style={S.quick} onClick={() => setDraft(goal)}>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 cursor-pointer rounded-[10px] border border-white/10 bg-white/5 py-[9px] text-[0.72rem] tracking-[0.03em] text-white/80"
+                onClick={() => setDraft(goal)}
+              >
                 Set goal
               </button>
-              <button style={S.quick} onClick={() => setDraft((v) => (Number(v) || 0) + 1000)}>
+              <button
+                className="flex-1 cursor-pointer rounded-[10px] border border-white/10 bg-white/5 py-[9px] text-[0.72rem] tracking-[0.03em] text-white/80"
+                onClick={() => setDraft((v) => (Number(v) || 0) + 1000)}
+              >
                 +1000
               </button>
               <button
-                style={S.quick}
+                className="flex-1 cursor-pointer rounded-[10px] border border-white/10 bg-white/5 py-[9px] text-[0.72rem] tracking-[0.03em] text-white/80"
                 onClick={() => setDraft((v) => Math.max(0, (Number(v) || 0) - 1000))}
               >
                 −1000
               </button>
             </div>
 
-            <div style={S.editorActions}>
-              <button style={S.clear} onClick={() => setDraft(0)}>
+            <div className="mt-1 flex gap-2">
+              <button
+                className="flex-1 cursor-pointer rounded-[10px] border border-white/[0.12] bg-transparent py-[11px] text-[0.8rem] tracking-[0.04em] text-white/50"
+                onClick={() => setDraft(0)}
+              >
                 Clear
               </button>
               <button
-                style={S.save}
+                className="flex-[2] cursor-pointer rounded-[10px] border-none bg-teal-dim py-[11px] text-[0.8rem] font-semibold tracking-[0.04em] text-white transition-colors hover:bg-teal"
                 onClick={saveDraft}
-                onMouseEnter={(e) => (e.currentTarget.style.background = ACCENT)}
-                onMouseLeave={(e) => (e.currentTarget.style.background = ACCENT_DIM)}
               >
                 Save
               </button>
@@ -274,267 +308,3 @@ export default function StepsTracker({ id }) {
     </div>
   );
 }
-
-const thumbCss = `
-  .st-page input[type=range] {
-    -webkit-appearance: none; appearance: none;
-    height: 4px; border-radius: 4px;
-    background: rgba(0,0,0,0.1);
-    outline: none;
-  }
-  .st-page input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: ${ACCENT}; cursor: pointer;
-    box-shadow: 0 0 0 4px rgba(45,212,191,0.18);
-  }
-  .st-page input[type=range]::-moz-range-thumb {
-    width: 18px; height: 18px; border: none; border-radius: 50%;
-    background: ${ACCENT}; cursor: pointer;
-  }
-  .st-page input[type=number]::-webkit-outer-spin-button,
-  .st-page input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-`;
-
-const S = {
-  page: {
-    position: 'relative',
-    width: '100vw',
-    minHeight: '100vh',
-    height: '100vh',
-    background: 'white',
-    overflowY: 'auto',
-    color: 'black',
-    fontFamily: "'Inter', system-ui, sans-serif",
-  },
-  back: {
-    position: 'absolute',
-    top: '28px',
-    left: '28px',
-    background: 'none',
-    border: 'none',
-    color: 'rgba(0,0,0,0.25)',
-    fontSize: '0.65rem',
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    zIndex: 20,
-    transition: 'color 0.2s',
-    padding: 0,
-  },
-  inner: {
-    maxWidth: '720px',
-    margin: '0 auto',
-    padding: '96px 24px 64px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '56px',
-  },
-
-  goalSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '22px' },
-  eyebrow: {
-    fontSize: '0.65rem',
-    letterSpacing: '0.3em',
-    textTransform: 'uppercase',
-    color: 'rgba(0,0,0,0.4)',
-    fontWeight: 300,
-  },
-  counter: {
-    fontSize: '4rem',
-    fontWeight: 200,
-    letterSpacing: '0.02em',
-    lineHeight: 1,
-    color: '#0f172a',
-    display: 'flex',
-    alignItems: 'flex-end',
-    gap: '14px',
-  },
-  counterUnit: {
-    fontSize: '0.8rem',
-    fontWeight: 400,
-    letterSpacing: '0.06em',
-    color: 'rgba(0,0,0,0.35)',
-    paddingBottom: '8px',
-  },
-  chips: { display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' },
-  chip: {
-    background: 'transparent',
-    border: '1px solid rgba(0,0,0,0.15)',
-    color: 'rgba(0,0,0,0.55)',
-    borderRadius: '999px',
-    padding: '7px 16px',
-    fontSize: '0.8rem',
-    letterSpacing: '0.04em',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'all 0.15s',
-  },
-  chipActive: { background: ACCENT, borderColor: ACCENT, color: '#0f172a', fontWeight: 600 },
-  sliderWrap: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-    width: '100%',
-    maxWidth: '440px',
-  },
-  slider: { flex: 1 },
-  sliderEnd: { fontSize: '0.65rem', letterSpacing: '0.1em', color: 'rgba(0,0,0,0.3)' },
-
-  weekSection: { display: 'flex', flexDirection: 'column', gap: '18px' },
-  weekHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  weekHeaderMid: { textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '4px' },
-  range: { fontSize: '1rem', fontWeight: 300, letterSpacing: '0.04em', color: '#0f172a' },
-  weekState: { fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase' },
-  arrow: {
-    background: 'transparent',
-    border: `1px solid ${ACCENT_DIM}`,
-    color: ACCENT_DIM,
-    width: '38px',
-    height: '38px',
-    borderRadius: '12px',
-    fontSize: '1.2rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(7, 1fr)',
-    gap: '8px',
-    transition: 'opacity 0.3s, filter 0.3s',
-  },
-  gridFinished: { opacity: 0.42, filter: 'saturate(0.6)' },
-  cell: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-    background: 'rgba(0,0,0,0.02)',
-    borderRadius: '14px',
-    padding: '12px 4px',
-    fontFamily: 'inherit',
-    color: 'inherit',
-    transition: 'all 0.15s',
-  },
-  cellDow: {
-    fontSize: '0.58rem',
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    color: 'rgba(0,0,0,0.4)',
-  },
-  cellNum: { fontSize: '0.95rem', fontWeight: 300, color: '#0f172a' },
-  mark: {
-    width: '26px',
-    height: '26px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '0.8rem',
-    fontWeight: 700,
-  },
-  cellSteps: {
-    fontSize: '0.55rem',
-    color: 'rgba(0,0,0,0.4)',
-    minHeight: '0.7rem',
-    letterSpacing: '0.02em',
-  },
-
-  legend: {
-    display: 'flex',
-    gap: '24px',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    fontSize: '0.65rem',
-    letterSpacing: '0.1em',
-    color: 'rgba(0,0,0,0.45)',
-    textTransform: 'uppercase',
-  },
-  legendItem: { display: 'flex', alignItems: 'center', gap: '8px' },
-  dot: { width: '10px', height: '10px', borderRadius: '50%', display: 'inline-block' },
-
-  // Day editor — matches the home page's ManageMetrics dark modal
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.65)',
-    backdropFilter: 'blur(6px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 30,
-  },
-  editor: {
-    background: '#0d1526',
-    border: `1px solid ${ACCENT_DIM}`,
-    borderRadius: '16px',
-    padding: '28px',
-    width: '320px',
-    maxWidth: '90vw',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '18px',
-    boxShadow: '0 0 40px rgba(45,212,191,0.08)',
-  },
-  editorTitle: {
-    fontSize: '0.7rem',
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: ACCENT,
-    fontWeight: 600,
-  },
-  input: {
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '12px',
-    color: 'white',
-    fontSize: '1.6rem',
-    fontWeight: 200,
-    padding: '12px 16px',
-    textAlign: 'center',
-    fontFamily: 'inherit',
-    width: '100%',
-    outline: 'none',
-  },
-  hint: { textAlign: 'center', fontSize: '0.8rem', letterSpacing: '0.03em' },
-  quickRow: { display: 'flex', gap: '8px' },
-  quick: {
-    flex: 1,
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: 'rgba(255,255,255,0.8)',
-    borderRadius: '10px',
-    padding: '9px 0',
-    fontSize: '0.72rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    letterSpacing: '0.03em',
-  },
-  editorActions: { display: 'flex', gap: '8px', marginTop: '4px' },
-  clear: {
-    flex: 1,
-    background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.12)',
-    color: 'rgba(255,255,255,0.5)',
-    borderRadius: '10px',
-    padding: '11px 0',
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    letterSpacing: '0.04em',
-  },
-  save: {
-    flex: 2,
-    background: ACCENT_DIM,
-    border: 'none',
-    color: 'white',
-    borderRadius: '10px',
-    padding: '11px 0',
-    fontSize: '0.8rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    letterSpacing: '0.04em',
-    transition: 'background 0.15s',
-  },
-};

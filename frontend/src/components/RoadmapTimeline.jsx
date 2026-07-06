@@ -6,7 +6,6 @@ const TEXT = '#374151';
 const MUTED = '#9ca3af';
 const BORDER = '#e5e7eb';
 const GREEN = '#16a34a';
-const FONT = '-apple-system, "Segoe UI", Roboto, system-ui, sans-serif';
 
 const STATUS_META = {
   upcoming: { label: 'Upcoming', color: MUTED, ring: '#cbd5e1' },
@@ -191,40 +190,52 @@ export default function RoadmapTimeline({ id }) {
   };
 
   return (
-    <section style={styles.card} aria-label="Roadmap timeline">
-      <style>{keyframes}</style>
-
-      <header style={styles.header}>
+    <section
+      className="mb-8 rounded-2xl border border-gray-200 bg-white px-[22px] pb-2 pt-5 font-system shadow-[0_1px_3px_rgba(16,24,40,0.06),0_1px_2px_rgba(16,24,40,0.04)]"
+      aria-label="Roadmap timeline"
+    >
+      <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 style={styles.heading}>Roadmap</h2>
-          <p style={styles.sub}>Arrange your sequence of events and track where you are.</p>
+          <h2 className="m-0 text-[1.1rem] font-semibold text-gray-900">Roadmap</h2>
+          <p className="mb-0 mt-[3px] text-[0.82rem] text-gray-400">
+            Arrange your sequence of events and track where you are.
+          </p>
         </div>
-        <div style={styles.headerRight}>
+        <div className="flex flex-wrap items-center gap-2.5">
           {total > 0 && (
-            <span style={styles.progressPill} aria-live="polite">
-              <span style={styles.progressDot} />
+            <span
+              className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-full border border-sky-100 bg-sky-50 px-3 py-[5px] text-[0.78rem] font-medium text-sky-700"
+              aria-live="polite"
+            >
+              <span className="inline-block h-[7px] w-[7px] rounded-full bg-green-600" />
               {doneCount} of {total} stages complete
             </span>
           )}
-          <button type="button" onClick={add} style={styles.addBtn} className="rt-add">
+          <button
+            type="button"
+            onClick={add}
+            className="cursor-pointer rounded-[9px] border-none bg-blue-600 px-3.5 py-2 text-[0.83rem] font-medium text-white transition-colors hover:bg-blue-700"
+          >
             + Add task
           </button>
         </div>
       </header>
 
-      <div ref={trackRef} style={styles.track} role="group" aria-label="Timeline track">
+      <div ref={trackRef} className="relative mt-2 h-[124px] w-full" role="group" aria-label="Timeline track">
         {/* base + progress line */}
-        <div style={styles.baseLine} />
+        <div className="pointer-events-none absolute left-0 right-0 top-[61px] z-[2] h-1 rounded-full bg-[#eef2f6]" />
         <div
+          className="pointer-events-none absolute left-0 top-[61px] z-[3] h-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-500"
           style={{
-            ...styles.fillLine,
             width: `${fillPct}%`,
             transition: draggingId ? 'none' : 'width .45s ease',
           }}
         />
 
         {loaded && n === 0 && (
-          <p style={styles.emptyHint}>No events yet — add your first one with “Add task”.</p>
+          <p className="pointer-events-none absolute left-1/2 top-[78px] m-0 w-[90%] -translate-x-1/2 text-center text-[0.82rem] text-gray-400">
+            No events yet — add your first one with “Add task”.
+          </p>
         )}
 
         {ordered.map((m, i) => {
@@ -237,8 +248,8 @@ export default function RoadmapTimeline({ id }) {
           return (
             <div
               key={m.id}
+              className="absolute top-0 h-full"
               style={{
-                ...styles.nodeWrap,
                 left: `${left}%`,
                 zIndex: isOpen ? 60 : isDragging ? 40 : 10,
                 transition: isDragging ? 'none' : 'left .3s cubic-bezier(.22,1,.36,1)',
@@ -246,28 +257,29 @@ export default function RoadmapTimeline({ id }) {
             >
               {/* label (always above the line) */}
               <span
+                className="pointer-events-none absolute left-0 top-4 max-w-[130px] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[7px] border bg-white px-[9px] py-1 text-[0.78rem] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
                 style={{
-                  ...styles.label,
                   borderColor: isCurrent ? BLUE : BORDER,
                   color: isCurrent ? BLUE : TEXT,
                 }}
               >
                 {m.title}
               </span>
-              <span style={styles.tick} />
+              <span className="pointer-events-none absolute left-0 top-[50px] h-3 w-[1.5px] -translate-x-1/2 bg-gray-200" />
 
               {/* marker button */}
               <button
                 type="button"
                 aria-label={`${m.title} — ${meta.label}. Use arrow keys to reorder, Enter to edit, Delete to remove.`}
                 aria-expanded={isOpen}
-                className={`rt-node${isCurrent ? ' rt-current' : ''}`}
+                className={`absolute left-0 top-[63px] flex h-[22px] w-[22px] items-center justify-center rounded-full border-[2.5px] p-0 shadow-[0_1px_3px_rgba(16,24,40,0.18)] outline-none transition-[transform,background,border-color] duration-200 hover:brightness-[1.02] focus-visible:shadow-[0_0_0_3px_rgba(37,99,235,.35)] ${
+                  isCurrent ? 'animate-rtBlink' : ''
+                }`}
                 onPointerDown={(e) => onNodePointerDown(e, m.id)}
                 onPointerMove={(e) => onNodePointerMove(e, m.id)}
                 onPointerUp={(e) => onNodePointerUp(e, m.id)}
                 onKeyDown={(e) => onNodeKeyDown(e, m.id)}
                 style={{
-                  ...styles.marker,
                   borderColor: meta.ring,
                   background:
                     m.status === 'done' ? GREEN : m.status === 'in_progress' ? BLUE : '#fff',
@@ -276,20 +288,22 @@ export default function RoadmapTimeline({ id }) {
                 }}
               >
                 {m.status === 'done' && <CheckIcon />}
-                {m.status === 'in_progress' && <span style={styles.innerDot} aria-hidden="true" />}
+                {m.status === 'in_progress' && (
+                  <span className="h-[7px] w-[7px] rounded-full bg-white" aria-hidden="true" />
+                )}
               </button>
 
               {/* popover menu */}
               {isOpen && (
                 <div
-                  style={{
-                    ...styles.menu,
-                    ...(left > 80
+                  className="absolute left-0 top-[92px] z-[80] w-[232px] -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-3 shadow-[0_12px_32px_rgba(16,24,40,0.16)]"
+                  style={
+                    left > 80
                       ? { left: 'auto', right: 0, transform: 'none' }
                       : left < 20
                         ? { left: 0, transform: 'none' }
-                        : {}),
-                  }}
+                        : {}
+                  }
                   role="dialog"
                   aria-label={`Edit ${m.title}`}
                   onClick={(e) => e.stopPropagation()}
@@ -310,9 +324,9 @@ export default function RoadmapTimeline({ id }) {
                       }
                     }}
                     placeholder="Task title"
-                    style={styles.menuInput}
+                    className="mb-2.5 w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[0.85rem] text-gray-700 outline-none"
                   />
-                  <div style={styles.statusRow} role="group" aria-label="Set status">
+                  <div className="mb-2.5 flex gap-1.5" role="group" aria-label="Set status">
                     {STATUS_ORDER.map((s) => {
                       const sm = STATUS_META[s];
                       const active = m.status === s;
@@ -322,8 +336,8 @@ export default function RoadmapTimeline({ id }) {
                           type="button"
                           onClick={() => setStatus(m, s)}
                           aria-pressed={active}
+                          className="flex-1 cursor-pointer whitespace-nowrap rounded-[7px] border px-1 py-1.5 text-[0.72rem] font-medium transition-all"
                           style={{
-                            ...styles.statusBtn,
                             color: active ? '#fff' : sm.color,
                             background: active ? sm.color : 'transparent',
                             borderColor: active ? sm.color : BORDER,
@@ -334,16 +348,19 @@ export default function RoadmapTimeline({ id }) {
                       );
                     })}
                   </div>
-                  <div style={styles.menuFooter}>
+                  <div className="flex items-center justify-between">
                     <button
                       type="button"
                       onClick={() => remove(m.id)}
-                      style={styles.deleteBtn}
-                      className="rt-delete"
+                      className="cursor-pointer rounded-md border-none bg-transparent px-2 py-[5px] text-[0.8rem] text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                     >
                       Delete
                     </button>
-                    <button type="button" onClick={() => setOpenId(null)} style={styles.doneBtn}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(null)}
+                      className="cursor-pointer rounded-[7px] border-none bg-gray-100 px-3.5 py-1.5 text-[0.8rem] font-medium text-gray-700"
+                    >
                       Done
                     </button>
                   </div>
@@ -374,216 +391,3 @@ function CheckIcon() {
     </svg>
   );
 }
-
-const keyframes = `
-@keyframes rtBlink {
-  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 rgba(37,99,235,.55); }
-  50%      { opacity: .4;  box-shadow: 0 0 0 7px rgba(37,99,235,0); }
-}
-.rt-current { animation: rtBlink 1.15s ease-in-out infinite; }
-.rt-node  { outline: none; }
-.rt-node:focus-visible { box-shadow: 0 0 0 3px rgba(37,99,235,.35); }
-.rt-node:hover { filter: brightness(1.02); }
-.rt-add:hover { background: #1d4ed8; }
-.rt-delete:hover { background: #fef2f2; color: #dc2626; }
-`;
-
-const styles = {
-  card: {
-    border: `1px solid ${BORDER}`,
-    borderRadius: 16,
-    background: '#fff',
-    boxShadow: '0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04)',
-    padding: '20px 22px 8px',
-    marginBottom: 32,
-    fontFamily: FONT,
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 16,
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  heading: { fontSize: '1.1rem', fontWeight: 600, color: '#111827', margin: 0 },
-  sub: { margin: '3px 0 0', fontSize: '0.82rem', color: MUTED },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  progressPill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    background: '#f0f9ff',
-    color: '#0369a1',
-    border: '1px solid #e0f2fe',
-    borderRadius: 999,
-    padding: '5px 12px',
-    fontSize: '0.78rem',
-    fontWeight: 500,
-    whiteSpace: 'nowrap',
-  },
-  progressDot: {
-    width: 7,
-    height: 7,
-    borderRadius: '50%',
-    background: GREEN,
-    display: 'inline-block',
-  },
-  addBtn: {
-    background: BLUE,
-    color: '#fff',
-    border: 'none',
-    borderRadius: 9,
-    padding: '8px 14px',
-    fontSize: '0.83rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'background .15s',
-  },
-  track: {
-    position: 'relative',
-    height: 124,
-    width: '100%',
-    marginTop: 8,
-  },
-  baseLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 61,
-    height: 4,
-    background: '#eef2f6',
-    borderRadius: 999,
-    pointerEvents: 'none',
-    zIndex: 2,
-  },
-  fillLine: {
-    position: 'absolute',
-    left: 0,
-    top: 61,
-    height: 4,
-    background: `linear-gradient(90deg, ${BLUE}, #3b82f6)`,
-    borderRadius: 999,
-    pointerEvents: 'none',
-    zIndex: 3,
-  },
-  emptyHint: {
-    position: 'absolute',
-    left: '50%',
-    top: 78,
-    transform: 'translateX(-50%)',
-    margin: 0,
-    color: MUTED,
-    fontSize: '0.82rem',
-    textAlign: 'center',
-    width: '90%',
-    pointerEvents: 'none',
-  },
-  nodeWrap: { position: 'absolute', top: 0, height: '100%' },
-  marker: {
-    position: 'absolute',
-    top: 63,
-    left: 0,
-    transform: 'translateX(-50%)',
-    width: 22,
-    height: 22,
-    borderRadius: '50%',
-    border: '2.5px solid',
-    padding: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 1px 3px rgba(16,24,40,0.18)',
-    transition: 'transform .2s, background .25s, border-color .25s',
-  },
-  innerDot: { width: 7, height: 7, borderRadius: '50%', background: '#fff' },
-  tick: {
-    position: 'absolute',
-    left: 0,
-    top: 50,
-    width: 1.5,
-    height: 12,
-    background: BORDER,
-    transform: 'translateX(-50%)',
-    pointerEvents: 'none',
-  },
-  label: {
-    position: 'absolute',
-    left: 0,
-    top: 16,
-    transform: 'translateX(-50%)',
-    maxWidth: 130,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    fontSize: '0.78rem',
-    fontWeight: 500,
-    background: '#fff',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 7,
-    padding: '4px 9px',
-    boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
-    pointerEvents: 'none',
-  },
-  menu: {
-    position: 'absolute',
-    top: 92,
-    left: 0,
-    transform: 'translateX(-50%)',
-    width: 232,
-    background: '#fff',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    padding: 12,
-    zIndex: 80,
-    boxShadow: '0 12px 32px rgba(16,24,40,0.16)',
-  },
-  menuInput: {
-    width: '100%',
-    boxSizing: 'border-box',
-    padding: '8px 10px',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 8,
-    fontSize: '0.85rem',
-    fontFamily: 'inherit',
-    color: TEXT,
-    outline: 'none',
-    marginBottom: 10,
-  },
-  statusRow: { display: 'flex', gap: 6, marginBottom: 10 },
-  statusBtn: {
-    flex: 1,
-    padding: '6px 4px',
-    borderRadius: 7,
-    border: '1px solid',
-    fontSize: '0.72rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'all .15s',
-    whiteSpace: 'nowrap',
-  },
-  menuFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  deleteBtn: {
-    background: 'none',
-    border: 'none',
-    color: MUTED,
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    padding: '5px 8px',
-    borderRadius: 6,
-  },
-  doneBtn: {
-    background: '#f3f4f6',
-    border: 'none',
-    color: TEXT,
-    fontSize: '0.8rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    padding: '6px 14px',
-    borderRadius: 7,
-  },
-};

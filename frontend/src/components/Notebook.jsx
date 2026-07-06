@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { getNotes, createNote, updateNote, deleteNote } from '../api';
 import RoadmapTimeline from './RoadmapTimeline';
 
-const BLUE = '#2563eb';
-const TEXT = '#374151';
-const MUTED = '#9ca3af';
-const BORDER = '#e5e7eb';
-const FONT = '-apple-system, "Segoe UI", Roboto, system-ui, sans-serif';
+const textareaClass =
+  'w-full resize-y rounded-[10px] border border-gray-200 px-3.5 py-3 text-[0.95rem] leading-[1.5] text-gray-700 outline-none';
+const linkBtnClass =
+  'cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 text-[0.8rem] text-gray-400';
 
 const fmtDate = (s) => {
   if (!s) return '';
@@ -76,63 +75,57 @@ export default function Notebook({ id }) {
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
+    <div className="h-screen w-screen overflow-y-auto bg-white font-system text-gray-700">
+      <div className="mx-auto px-6 pb-20 pt-10">
         <button
           onClick={() => navigate('/')}
-          style={styles.back}
-          onMouseEnter={(e) => (e.currentTarget.style.color = TEXT)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
+          className="cursor-pointer border-none bg-transparent p-0 text-[0.7rem] uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-700"
         >
           ← Back
         </button>
 
-        <h1 style={styles.title}>Programmer's Notebook</h1>
-        <p style={styles.subtitle}>
+        <h1 className="mb-1.5 mt-5 text-[1.9rem] font-semibold text-gray-900">
+          Programmer's Notebook
+        </h1>
+        <p className="mb-7 text-[0.92rem] text-gray-400">
           Track what you've learned. Tip: turn on “Edit links” to attach a URL to any word.
         </p>
 
         <RoadmapTimeline id={id} />
 
-        <div style={styles.composer}>
-          <div style={styles.composerField}>
+        <div className="mb-5">
+          <div className="relative">
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="What did you learn today?"
               rows={4}
-              style={{ ...styles.textarea, paddingBottom: 48 }}
+              className={`${textareaClass} pb-12`}
             />
             <button
               onClick={add}
               disabled={!newContent.trim()}
-              style={styles.composerBtn}
-              onMouseEnter={(e) => {
-                if (e.currentTarget.disabled) return;
-                e.currentTarget.style.background = '#f9fafb';
-                e.currentTarget.style.borderColor = '#d1d5db';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#ffffff';
-                e.currentTarget.style.borderColor = BORDER;
-                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
-              }}
+              className="absolute bottom-2.5 right-2.5 cursor-pointer rounded-lg border border-gray-200 bg-white px-[18px] py-2 text-[0.9rem] font-semibold text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all enabled:hover:border-gray-300 enabled:hover:bg-gray-50 enabled:hover:shadow-[0_2px_8px_rgba(0,0,0,0.10)]"
             >
               Add entry
             </button>
           </div>
         </div>
 
-        <div style={styles.list}>
+        <div className="flex flex-col gap-4">
           {notes.length === 0 && (
-            <p style={styles.empty}>No entries yet. Add your first one above.</p>
+            <p className="py-6 text-center text-[0.92rem] text-gray-400">
+              No entries yet. Add your first one above.
+            </p>
           )}
           {notes.map((note) => (
-            <article key={note.id} style={styles.card}>
-              <div style={styles.cardHead}>
-                <time style={styles.time}>{fmtDate(note.created_at)}</time>
-                <div style={styles.actions}>
+            <article
+              key={note.id}
+              className="rounded-[14px] border border-gray-200 bg-white px-[18px] py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+            >
+              <div className="mb-2.5 flex items-center justify-between gap-3">
+                <time className="text-[0.78rem] text-gray-400">{fmtDate(note.created_at)}</time>
+                <div className="flex shrink-0 gap-1">
                   {editingId !== note.id && (
                     <>
                       <button
@@ -140,14 +133,18 @@ export default function Notebook({ id }) {
                           setLinkModeId(linkModeId === note.id ? null : note.id);
                           setActiveWord(null);
                         }}
-                        style={linkModeId === note.id ? styles.toggleOn : styles.linkBtn}
+                        className={
+                          linkModeId === note.id
+                            ? 'cursor-pointer rounded-md border-none bg-blue-50 px-2 py-0.5 text-[0.8rem] font-medium text-blue-600'
+                            : linkBtnClass
+                        }
                       >
                         {linkModeId === note.id ? 'Done linking' : 'Edit links'}
                       </button>
-                      <button onClick={() => startEdit(note)} style={styles.linkBtn}>
+                      <button onClick={() => startEdit(note)} className={linkBtnClass}>
                         Edit
                       </button>
-                      <button onClick={() => remove(note.id)} style={styles.linkBtn}>
+                      <button onClick={() => remove(note.id)} className={linkBtnClass}>
                         Delete
                       </button>
                     </>
@@ -161,17 +158,20 @@ export default function Notebook({ id }) {
                     value={editDraft}
                     onChange={(e) => setEditDraft(e.target.value)}
                     rows={4}
-                    style={styles.textarea}
+                    className={textareaClass}
                   />
-                  <div style={styles.editActions}>
+                  <div className="flex items-center">
                     <button
                       onClick={() => saveEdit(note)}
                       disabled={!editDraft.trim()}
-                      style={styles.primaryBtn}
+                      className="mt-2.5 cursor-pointer rounded-lg border-none bg-[#333] px-[18px] py-[9px] text-[0.9rem] font-medium text-white"
                     >
                       Save
                     </button>
-                    <button onClick={() => setEditingId(null)} style={styles.ghostBtn}>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="ml-2 mt-2.5 cursor-pointer rounded-lg border border-gray-200 bg-transparent px-[18px] py-[9px] text-[0.9rem] text-gray-400"
+                    >
                       Cancel
                     </button>
                   </div>
@@ -214,7 +214,7 @@ function NoteBody({
   let wordIndex = -1;
 
   return (
-    <p style={styles.body}>
+    <p className="m-0 whitespace-pre-wrap text-[0.96rem] leading-[1.7]">
       {tokens.map((token, i) => {
         if (/^\s+$/.test(token) || token === '') return <span key={i}>{token}</span>;
         wordIndex += 1;
@@ -223,7 +223,7 @@ function NoteBody({
         const isActive = activeWord && activeWord.noteId === note.id && activeWord.wordIndex === wi;
 
         const editor = isActive && (
-          <span style={styles.popover}>
+          <span className="absolute left-0 top-[1.6em] z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white p-1 shadow-[0_6px_20px_rgba(0,0,0,0.12)]">
             <input
               autoFocus
               value={activeWord.draft}
@@ -233,12 +233,18 @@ function NoteBody({
                 if (e.key === 'Escape') onCancelLink();
               }}
               placeholder="https://…  (empty to remove)"
-              style={styles.popoverInput}
+              className="w-[220px] rounded-md border border-gray-200 px-2 py-1.5 text-[0.85rem] outline-none"
             />
-            <button onClick={onSaveLink} style={styles.popoverSave}>
+            <button
+              onClick={onSaveLink}
+              className="cursor-pointer rounded-md border-none bg-blue-600 px-3 py-1.5 text-[0.82rem] text-white"
+            >
               Save
             </button>
-            <button onClick={onCancelLink} style={styles.popoverCancel}>
+            <button
+              onClick={onCancelLink}
+              className="cursor-pointer border-none bg-transparent px-1 text-[0.9rem] text-gray-400"
+            >
               ✕
             </button>
           </span>
@@ -246,10 +252,14 @@ function NoteBody({
 
         if (linkMode) {
           return (
-            <span key={i} style={styles.wordWrap}>
+            <span key={i} className="relative inline">
               <span
                 onClick={() => onWordClick(wi)}
-                style={url ? styles.editableLink : styles.editableWord}
+                className={
+                  url
+                    ? 'cursor-pointer text-blue-600 underline'
+                    : 'cursor-pointer border-b border-dashed border-gray-400'
+                }
                 title="Click to set a link"
               >
                 {token}
@@ -261,7 +271,13 @@ function NoteBody({
 
         if (url) {
           return (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={styles.link}>
+            <a
+              key={i}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline"
+            >
               {token}
             </a>
           );
@@ -271,189 +287,3 @@ function NoteBody({
     </p>
   );
 }
-
-const styles = {
-  page: {
-    height: '100vh',
-    width: '100vw',
-    overflowY: 'auto',
-    background: '#ffffff',
-    color: TEXT,
-    fontFamily: FONT,
-  },
-  container: {
-    margin: '0 auto',
-    padding: '40px 24px 80px',
-  },
-  back: {
-    background: 'none',
-    border: 'none',
-    color: MUTED,
-    fontSize: '0.7rem',
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    padding: 0,
-    transition: 'color 0.2s',
-  },
-  title: {
-    fontSize: '1.9rem',
-    fontWeight: 600,
-    margin: '20px 0 6px',
-    color: '#111827',
-  },
-  subtitle: {
-    margin: '0 0 28px',
-    color: MUTED,
-    fontSize: '0.92rem',
-  },
-  composer: { marginBottom: 20 },
-  composerField: { position: 'relative' },
-  composerBtn: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    background: '#ffffff',
-    color: TEXT,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 8,
-    padding: '8px 18px',
-    fontSize: '0.9rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-    transition: 'background 0.18s, border-color 0.18s, box-shadow 0.18s',
-  },
-  textarea: {
-    width: '100%',
-    resize: 'vertical',
-    padding: '12px 14px',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 10,
-    fontSize: '0.95rem',
-    fontFamily: 'inherit',
-    color: TEXT,
-    outline: 'none',
-    lineHeight: 1.5,
-  },
-  primaryBtn: {
-    marginTop: 10,
-    background: '#333',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '9px 18px',
-    fontSize: '0.9rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
-  ghostBtn: {
-    marginTop: 10,
-    marginLeft: 8,
-    background: 'none',
-    color: MUTED,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 8,
-    padding: '9px 18px',
-    fontSize: '0.9rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
-  list: { display: 'flex', flexDirection: 'column', gap: 16 },
-  empty: { color: MUTED, fontSize: '0.92rem', textAlign: 'center', padding: '24px 0' },
-  card: {
-    border: `1px solid ${BORDER}`,
-    borderRadius: 14,
-    padding: '16px 18px',
-    background: '#fff',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-  },
-  cardHead: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 12,
-  },
-  time: { color: MUTED, fontSize: '0.78rem' },
-  actions: { display: 'flex', gap: 4, flexShrink: 0 },
-  linkBtn: {
-    background: 'none',
-    border: 'none',
-    color: MUTED,
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    padding: '2px 6px',
-    borderRadius: 6,
-  },
-  toggleOn: {
-    background: '#eff6ff',
-    border: 'none',
-    color: BLUE,
-    fontSize: '0.8rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    padding: '2px 8px',
-    borderRadius: 6,
-  },
-  editActions: { display: 'flex', alignItems: 'center' },
-  body: { margin: 0, lineHeight: 1.7, fontSize: '0.96rem', whiteSpace: 'pre-wrap' },
-  link: { color: BLUE, textDecoration: 'underline' },
-  wordWrap: { position: 'relative', display: 'inline' },
-  editableWord: {
-    cursor: 'pointer',
-    borderBottom: `1px dashed ${MUTED}`,
-  },
-  editableLink: {
-    cursor: 'pointer',
-    color: BLUE,
-    textDecoration: 'underline',
-  },
-  popover: {
-    position: 'absolute',
-    top: '1.6em',
-    left: 0,
-    zIndex: 30,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    background: '#fff',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 8,
-    padding: 4,
-    boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
-    whiteSpace: 'nowrap',
-  },
-  popoverInput: {
-    width: 220,
-    padding: '6px 8px',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 6,
-    fontSize: '0.85rem',
-    fontFamily: 'inherit',
-    outline: 'none',
-  },
-  popoverSave: {
-    background: BLUE,
-    color: '#fff',
-    border: 'none',
-    borderRadius: 6,
-    padding: '6px 12px',
-    fontSize: '0.82rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
-  popoverCancel: {
-    background: 'none',
-    border: 'none',
-    color: MUTED,
-    fontSize: '0.9rem',
-    cursor: 'pointer',
-    padding: '0 4px',
-  },
-};
