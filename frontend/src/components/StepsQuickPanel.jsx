@@ -2,9 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { getSteps, saveSteps } from '../api';
 import { fmt, toKey } from '../stepsUtil';
 
-const ACCENT = '#2dd4bf'; // teal — goal reached
-const AMBER = '#f59e0b'; // almost there
-
 // Compact "log today's steps" card shown under the steps metric label on hover.
 export default function StepsQuickPanel({ id, isLeft }) {
   const [goal, setGoal] = useState(10000);
@@ -50,14 +47,16 @@ export default function StepsQuickPanel({ id, isLeft }) {
       </div>
 
       <div className="text-[1.05rem] font-normal leading-none tracking-[0.02em] text-slate-900">
-        <span style={{ color: reached ? ACCENT : AMBER }}>{fmt(Number(draft) || 0)}</span>
+        <span className={reached ? 'text-teal' : 'text-amber-500'}>{fmt(Number(draft) || 0)}</span>
         <span className="text-black/35"> / {fmt(goal)}</span>
       </div>
 
       <div className="h-1 overflow-hidden bg-black/[0.08]">
         <div
-          className="h-full rounded transition-[width,background] duration-200 ease-out"
-          style={{ width: `${pct}%`, background: reached ? ACCENT : AMBER }}
+          className={`h-full rounded transition-[width,background] duration-200 ease-out ${
+            reached ? 'bg-teal' : 'bg-amber-500'
+          }`}
+          style={{ width: `${pct}%` }}
         />
       </div>
 
