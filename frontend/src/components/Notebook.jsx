@@ -85,10 +85,10 @@ export default function Notebook({ id }) {
         </button>
 
         <h1 className="mb-1.5 mt-5 text-[1.9rem] font-semibold text-gray-900">
-          Programmer's Notebook
+          Programmer&apos;s Notebook
         </h1>
         <p className="mb-7 text-[0.92rem] text-gray-400">
-          Track what you've learned. Tip: turn on “Edit links” to attach a URL to any word.
+          Track what you&apos;ve learned. Tip: turn on “Edit links” to attach a URL to any word.
         </p>
 
         <RoadmapTimeline id={id} />
@@ -211,14 +211,19 @@ function NoteBody({
   onCancelLink,
 }) {
   const tokens = note.content.split(/(\s+)/);
-  let wordIndex = -1;
+  const wordIndices = [];
+  let counter = -1;
+  for (const token of tokens) {
+    const isWord = !(/^\s+$/.test(token) || token === '');
+    counter += isWord ? 1 : 0;
+    wordIndices.push(isWord ? counter : null);
+  }
 
   return (
     <p className="m-0 whitespace-pre-wrap text-[0.96rem] leading-[1.7]">
       {tokens.map((token, i) => {
         if (/^\s+$/.test(token) || token === '') return <span key={i}>{token}</span>;
-        wordIndex += 1;
-        const wi = wordIndex;
+        const wi = wordIndices[i];
         const url = note.links[wi];
         const isActive = activeWord && activeWord.noteId === note.id && activeWord.wordIndex === wi;
 

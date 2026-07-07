@@ -1,6 +1,3 @@
-// Shared step-tracking helpers used by StepsTracker and StepsQuickPanel.
-
-// thin-space thousands separator: 10000 -> "10 000"
 export const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 export const toKey = (d) =>

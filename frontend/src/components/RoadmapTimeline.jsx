@@ -160,9 +160,9 @@ export default function RoadmapTimeline({ id }) {
   const onNodePointerUp = (e, mid) => {
     const st = dragState.current;
     dragState.current = null;
-    try {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
+    }
     if (!st) return;
     if (st.moved) {
       setDraggingId(null);

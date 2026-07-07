@@ -2,7 +2,7 @@ import figureImg from '../assets/human-figure.png';
 
 // Static figure image. Sized to match the footprint of the old 3D model:
 // ~80vh tall, horizontally centered, feet ~4.5vh above the viewport bottom.
-export default function HumanFigure({ rotate = false, onHover, onUnhover }) {
+export default function HumanFigure({ onHover, onUnhover }) {
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       <img
