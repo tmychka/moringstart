@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { getRoadmap, createMilestone, updateMilestone, deleteMilestone } from '../api';
 
-const BLUE = '#2563eb';
-const TEXT = '#374151';
-const MUTED = '#9ca3af';
-const BORDER = '#e5e7eb';
-const GREEN = '#16a34a';
-
 const STATUS_META = {
-  upcoming: { label: 'Upcoming', color: MUTED, ring: '#cbd5e1' },
-  in_progress: { label: 'In progress', color: BLUE, ring: BLUE },
-  done: { label: 'Done', color: GREEN, ring: GREEN },
+  upcoming: {
+    label: 'Upcoming',
+    ringClass: 'border-slate-300',
+    markerClass: 'bg-white',
+    activeClass: 'border-gray-400 bg-gray-400 text-white',
+    inactiveClass: 'border-gray-200 bg-transparent text-gray-400',
+  },
+  in_progress: {
+    label: 'In progress',
+    ringClass: 'border-blue-600',
+    markerClass: 'bg-blue-600',
+    activeClass: 'border-blue-600 bg-blue-600 text-white',
+    inactiveClass: 'border-gray-200 bg-transparent text-blue-600',
+  },
+  done: {
+    label: 'Done',
+    ringClass: 'border-green-600',
+    markerClass: 'bg-green-600',
+    activeClass: 'border-green-600 bg-green-600 text-white',
+    inactiveClass: 'border-gray-200 bg-transparent text-green-600',
+  },
 };
 const STATUS_ORDER = ['upcoming', 'in_progress', 'done'];
 
@@ -257,11 +269,9 @@ export default function RoadmapTimeline({ id }) {
             >
               {/* label (always above the line) */}
               <span
-                className="pointer-events-none absolute left-0 top-4 max-w-[130px] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[7px] border bg-white px-[9px] py-1 text-[0.78rem] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-                style={{
-                  borderColor: isCurrent ? BLUE : BORDER,
-                  color: isCurrent ? BLUE : TEXT,
-                }}
+                className={`pointer-events-none absolute left-0 top-4 max-w-[130px] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[7px] border bg-white px-[9px] py-1 text-[0.78rem] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${
+                  isCurrent ? 'border-blue-600 text-blue-600' : 'border-gray-200 text-gray-700'
+                }`}
               >
                 {m.title}
               </span>
@@ -272,20 +282,13 @@ export default function RoadmapTimeline({ id }) {
                 type="button"
                 aria-label={`${m.title} — ${meta.label}. Use arrow keys to reorder, Enter to edit, Delete to remove.`}
                 aria-expanded={isOpen}
-                className={`absolute left-0 top-[63px] flex h-[22px] w-[22px] items-center justify-center rounded-full border-[2.5px] p-0 shadow-[0_1px_3px_rgba(16,24,40,0.18)] outline-none transition-[transform,background,border-color] duration-200 hover:brightness-[1.02] focus-visible:shadow-[0_0_0_3px_rgba(37,99,235,.35)] ${
-                  isCurrent ? 'animate-rtBlink' : ''
-                }`}
+                className={`absolute left-0 top-[63px] flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center rounded-full border-[2.5px] p-0 shadow-[0_1px_3px_rgba(16,24,40,0.18)] outline-none transition-[transform,background,border-color] duration-200 hover:brightness-[1.02] focus-visible:shadow-[0_0_0_3px_rgba(37,99,235,.35)] ${meta.ringClass} ${meta.markerClass} ${
+                  isCurrent ? 'animate-rtBlink scale-[1.12]' : ''
+                } ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                 onPointerDown={(e) => onNodePointerDown(e, m.id)}
                 onPointerMove={(e) => onNodePointerMove(e, m.id)}
                 onPointerUp={(e) => onNodePointerUp(e, m.id)}
                 onKeyDown={(e) => onNodeKeyDown(e, m.id)}
-                style={{
-                  borderColor: meta.ring,
-                  background:
-                    m.status === 'done' ? GREEN : m.status === 'in_progress' ? BLUE : '#fff',
-                  cursor: isDragging ? 'grabbing' : 'grab',
-                  transform: isCurrent ? 'translateX(-50%) scale(1.12)' : 'translateX(-50%)',
-                }}
               >
                 {m.status === 'done' && <CheckIcon />}
                 {m.status === 'in_progress' && (
@@ -336,12 +339,9 @@ export default function RoadmapTimeline({ id }) {
                           type="button"
                           onClick={() => setStatus(m, s)}
                           aria-pressed={active}
-                          className="flex-1 cursor-pointer whitespace-nowrap rounded-[7px] border px-1 py-1.5 text-[0.72rem] font-medium transition-all"
-                          style={{
-                            color: active ? '#fff' : sm.color,
-                            background: active ? sm.color : 'transparent',
-                            borderColor: active ? sm.color : BORDER,
-                          }}
+                          className={`flex-1 cursor-pointer whitespace-nowrap rounded-[7px] border px-1 py-1.5 text-[0.72rem] font-medium transition-all ${
+                            active ? sm.activeClass : sm.inactiveClass
+                          }`}
                         >
                           {sm.label}
                         </button>
