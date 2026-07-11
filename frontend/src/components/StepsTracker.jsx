@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { getSteps, saveGoal, saveSteps } from '../api';
 import { fmt, toKey } from '../stepsUtil';
 
-const ACCENT = '#2dd4bf'; // home page teal accent
-const AMBER = '#f59e0b';
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -162,8 +160,9 @@ export default function StepsTracker({ id }) {
                 {rangeLabel}
               </div>
               <div
-                className="text-[0.6rem] uppercase tracking-[0.2em]"
-                style={{ color: finished ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)' }}
+                className={`text-[0.6rem] uppercase tracking-[0.2em] ${
+                  finished ? 'text-white/40' : 'text-white/55'
+                }`}
               >
                 {stateLabel}
               </div>
@@ -186,8 +185,12 @@ export default function StepsTracker({ id }) {
               const isToday = key === todayKey;
               const isFuture = key > todayKey;
               const status = dayStatus(key);
-              const c =
-                status === 'done' ? ACCENT : status === 'almost' ? AMBER : 'rgba(0,0,0,0.3)';
+              const markClass =
+                status === 'done'
+                  ? 'bg-teal text-slate-900'
+                  : status === 'almost'
+                    ? 'bg-amber-500 text-slate-900'
+                    : 'bg-black/5 text-black/30';
               const mark = status === 'done' ? '✓' : status === 'almost' ? '◔' : '–';
               return (
                 <button
@@ -203,11 +206,7 @@ export default function StepsTracker({ id }) {
                   </span>
                   <span className="text-[0.95rem] font-light text-slate-900">{d.getDate()}</span>
                   <span
-                    className="flex h-[26px] w-[26px] items-center justify-center rounded-full text-[0.8rem] font-bold"
-                    style={{
-                      color: status === 'none' ? c : '#0f172a',
-                      background: status === 'none' ? 'rgba(0,0,0,0.05)' : c,
-                    }}
+                    className={`flex h-[26px] w-[26px] items-center justify-center rounded-full text-[0.8rem] font-bold ${markClass}`}
                   >
                     {mark}
                   </span>
