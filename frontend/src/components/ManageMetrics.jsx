@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { createMetric, updateMetric, deleteMetric } from '../api';
 
-const inputClass =
-  'flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-[7px] text-[0.85rem] text-white outline-none';
-
 export default function ManageMetrics({ metrics, onClose, onReload }) {
   const [newName, setNewName] = useState('');
   const [editId, setEditId] = useState(null);
@@ -79,7 +76,7 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             placeholder="New metric…"
-            className={inputClass}
+            className="flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-[7px] text-[0.85rem] text-white outline-none"
           />
           <button
             onClick={handleAdd}
@@ -103,9 +100,6 @@ function MetricRow({
   onCancelEdit,
   onDelete,
 }) {
-  const actionBtn =
-    'cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em]';
-
   return (
     <li className="group flex items-center gap-2 py-1">
       {isEditing ? (
@@ -118,12 +112,18 @@ function MetricRow({
               if (e.key === 'Escape') onCancelEdit();
             }}
             autoFocus
-            className={`${inputClass} text-[0.82rem]`}
+            className="flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-[7px] text-[0.82rem] text-white outline-none"
           />
-          <button onClick={onSaveEdit} className={`${actionBtn} text-teal`}>
+          <button
+            onClick={onSaveEdit}
+            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-teal"
+          >
             Save
           </button>
-          <button onClick={onCancelEdit} className={`${actionBtn} text-white/30`}>
+          <button
+            onClick={onCancelEdit}
+            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-white/30"
+          >
             ✕
           </button>
         </>
@@ -132,13 +132,13 @@ function MetricRow({
           <span className="flex-1 text-[0.85rem] font-light text-white/80">{metric.name}</span>
           <button
             onClick={onStartEdit}
-            className={`${actionBtn} text-teal opacity-0 transition-opacity group-hover:opacity-100`}
+            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-teal opacity-0 transition-opacity group-hover:opacity-100"
           >
             Edit
           </button>
           <button
             onClick={onDelete}
-            className={`${actionBtn} text-red-400 opacity-0 transition-opacity group-hover:opacity-100`}
+            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-red-400 opacity-0 transition-opacity group-hover:opacity-100"
           >
             Del
           </button>
