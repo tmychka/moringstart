@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { getSteps, saveSteps } from '../api';
-import { fmt, toKey } from '../stepsUtil';
+import { useEffect, useRef, useState } from "react";
+import { getSteps, saveSteps } from "../api";
+import { fmt, toKey } from "../stepsUtil";
 
 // Compact "log today's steps" card shown under the steps metric label on hover.
 export default function StepsQuickPanel({ id, isLeft }) {
@@ -13,7 +13,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
 
   useEffect(() => {
     getSteps(id).then((data) => {
-      if (data && typeof data.goal === 'number') setGoal(data.goal);
+      if (data && typeof data.goal === "number") setGoal(data.goal);
       const today = data && data.entries ? data.entries[todayKey] : 0;
       setDraft(today || 0);
       loaded.current = true;
@@ -21,7 +21,10 @@ export default function StepsQuickPanel({ id, isLeft }) {
   }, [id, todayKey]);
 
   const reached = draft >= goal && draft > 0;
-  const pct = goal > 0 ? Math.min(100, Math.round(((Number(draft) || 0) / goal) * 100)) : 0;
+  const pct =
+    goal > 0
+      ? Math.min(100, Math.round(((Number(draft) || 0) / goal) * 100))
+      : 0;
 
   const save = () => {
     if (!loaded.current) return;
@@ -37,7 +40,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
   return (
     <div
       className={`absolute top-full mt-2 z-30 flex w-[190px] cursor-default flex-col gap-2.5 rounded-[14px] bg-white p-3.5 ${
-        isLeft ? '-left-[13px]' : 'right-0'
+        isLeft ? "-left-[13px]" : "right-0"
       }`}
       onClick={stop}
       onMouseDown={stop}
@@ -47,14 +50,16 @@ export default function StepsQuickPanel({ id, isLeft }) {
       </div>
 
       <div className="text-[1.05rem] font-normal leading-none tracking-[0.02em] text-slate-900">
-        <span className={reached ? 'text-teal' : 'text-amber-500'}>{fmt(Number(draft) || 0)}</span>
+        <span className={reached ? "text-teal" : "text-amber-500"}>
+          {fmt(Number(draft) || 0)}
+        </span>
         <span className="text-black/35"> / {fmt(goal)}</span>
       </div>
 
       <div className="h-1 overflow-hidden bg-black/[0.08]">
         <div
           className={`h-full rounded transition-[width,background] duration-200 ease-out ${
-            reached ? 'bg-teal' : 'bg-amber-500'
+            reached ? "bg-teal" : "bg-amber-500"
           }`}
           style={{ width: `${pct}%` }}
         />
@@ -79,7 +84,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
           className="flex-1 rounded-[9px] border border-black/5 py-2 text-[0.65rem] font-bold tracking-[0.03em] text-navy transition-colors"
           onClick={save}
         >
-          {saved ? 'Saved ✓' : 'Save'}
+          {saved ? "Saved ✓" : "Save"}
         </button>
       </div>
     </div>

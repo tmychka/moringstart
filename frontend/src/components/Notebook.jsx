@@ -1,31 +1,31 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getNotes, createNote, updateNote, deleteNote } from '../api';
-import RoadmapTimeline from './RoadmapTimeline';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getNotes, createNote, updateNote, deleteNote } from "../api";
+import RoadmapTimeline from "./RoadmapTimeline";
 
 const textareaClass =
-  'w-full resize-y rounded-[10px] border border-gray-200 px-3.5 py-3 text-[0.95rem] leading-[1.5] text-gray-700 outline-none';
+  "w-full resize-y rounded-[10px] border border-gray-200 px-3.5 py-3 text-[0.95rem] leading-[1.5] text-gray-700 outline-none";
 const linkBtnClass =
-  'cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 text-[0.8rem] text-gray-400';
+  "cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 text-[0.8rem] text-gray-400";
 
 const fmtDate = (s) => {
-  if (!s) return '';
-  const d = new Date(s.replace(' ', 'T') + 'Z');
+  if (!s) return "";
+  const d = new Date(s.replace(" ", "T") + "Z");
   return d.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
 export default function Notebook({ id }) {
   const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
-  const [newContent, setNewContent] = useState('');
+  const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState(null); // note being text-edited
-  const [editDraft, setEditDraft] = useState('');
+  const [editDraft, setEditDraft] = useState("");
   const [linkModeId, setLinkModeId] = useState(null); // note with "Edit links" on
   const [activeWord, setActiveWord] = useState(null); // { noteId, wordIndex, draft }
 
@@ -38,7 +38,7 @@ export default function Notebook({ id }) {
     if (!content) return;
     const note = await createNote(id, content);
     setNotes((prev) => [note, ...prev]);
-    setNewContent('');
+    setNewContent("");
   };
 
   const remove = async (noteId) => {
@@ -78,7 +78,7 @@ export default function Notebook({ id }) {
     <div className="h-screen w-screen overflow-y-auto bg-white font-system text-gray-700">
       <div className="mx-auto px-6 pb-20 pt-10">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate("/")}
           className="cursor-pointer border-none bg-transparent p-0 text-[0.7rem] uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-700"
         >
           ← Back
@@ -88,7 +88,8 @@ export default function Notebook({ id }) {
           Programmer&apos;s Notebook
         </h1>
         <p className="mb-7 text-[0.92rem] text-gray-400">
-          Track what you&apos;ve learned. Tip: turn on “Edit links” to attach a URL to any word.
+          Track what you&apos;ve learned. Tip: turn on “Edit links” to attach a
+          URL to any word.
         </p>
 
         <RoadmapTimeline id={id} />
@@ -124,27 +125,37 @@ export default function Notebook({ id }) {
               className="rounded-[14px] border border-gray-200 bg-white px-[18px] py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
             >
               <div className="mb-2.5 flex items-center justify-between gap-3">
-                <time className="text-[0.78rem] text-gray-400">{fmtDate(note.created_at)}</time>
+                <time className="text-[0.78rem] text-gray-400">
+                  {fmtDate(note.created_at)}
+                </time>
                 <div className="flex shrink-0 gap-1">
                   {editingId !== note.id && (
                     <>
                       <button
                         onClick={() => {
-                          setLinkModeId(linkModeId === note.id ? null : note.id);
+                          setLinkModeId(
+                            linkModeId === note.id ? null : note.id
+                          );
                           setActiveWord(null);
                         }}
                         className={
                           linkModeId === note.id
-                            ? 'cursor-pointer rounded-md border-none bg-blue-50 px-2 py-0.5 text-[0.8rem] font-medium text-blue-600'
+                            ? "cursor-pointer rounded-md border-none bg-blue-50 px-2 py-0.5 text-[0.8rem] font-medium text-blue-600"
                             : linkBtnClass
                         }
                       >
-                        {linkModeId === note.id ? 'Done linking' : 'Edit links'}
+                        {linkModeId === note.id ? "Done linking" : "Edit links"}
                       </button>
-                      <button onClick={() => startEdit(note)} className={linkBtnClass}>
+                      <button
+                        onClick={() => startEdit(note)}
+                        className={linkBtnClass}
+                      >
                         Edit
                       </button>
-                      <button onClick={() => remove(note.id)} className={linkBtnClass}>
+                      <button
+                        onClick={() => remove(note.id)}
+                        className={linkBtnClass}
+                      >
                         Delete
                       </button>
                     </>
@@ -185,10 +196,12 @@ export default function Notebook({ id }) {
                     setActiveWord({
                       noteId: note.id,
                       wordIndex,
-                      draft: note.links[wordIndex] || '',
+                      draft: note.links[wordIndex] || "",
                     })
                   }
-                  onDraftChange={(draft) => setActiveWord((a) => ({ ...a, draft }))}
+                  onDraftChange={(draft) =>
+                    setActiveWord((a) => ({ ...a, draft }))
+                  }
                   onSaveLink={() => saveLink(note)}
                   onCancelLink={() => setActiveWord(null)}
                 />
@@ -214,7 +227,7 @@ function NoteBody({
   const wordIndices = [];
   let counter = -1;
   for (const token of tokens) {
-    const isWord = !(/^\s+$/.test(token) || token === '');
+    const isWord = !(/^\s+$/.test(token) || token === "");
     counter += isWord ? 1 : 0;
     wordIndices.push(isWord ? counter : null);
   }
@@ -222,10 +235,14 @@ function NoteBody({
   return (
     <p className="m-0 whitespace-pre-wrap text-[0.96rem] leading-[1.7]">
       {tokens.map((token, i) => {
-        if (/^\s+$/.test(token) || token === '') return <span key={i}>{token}</span>;
+        if (/^\s+$/.test(token) || token === "")
+          return <span key={i}>{token}</span>;
         const wi = wordIndices[i];
         const url = note.links[wi];
-        const isActive = activeWord && activeWord.noteId === note.id && activeWord.wordIndex === wi;
+        const isActive =
+          activeWord &&
+          activeWord.noteId === note.id &&
+          activeWord.wordIndex === wi;
 
         const editor = isActive && (
           <span className="absolute left-0 top-[1.6em] z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white p-1 shadow-[0_6px_20px_rgba(0,0,0,0.12)]">
@@ -234,8 +251,8 @@ function NoteBody({
               value={activeWord.draft}
               onChange={(e) => onDraftChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') onSaveLink();
-                if (e.key === 'Escape') onCancelLink();
+                if (e.key === "Enter") onSaveLink();
+                if (e.key === "Escape") onCancelLink();
               }}
               placeholder="https://…  (empty to remove)"
               className="w-[220px] rounded-md border border-gray-200 px-2 py-1.5 text-[0.85rem] outline-none"
@@ -262,8 +279,8 @@ function NoteBody({
                 onClick={() => onWordClick(wi)}
                 className={
                   url
-                    ? 'cursor-pointer text-blue-600 underline'
-                    : 'cursor-pointer border-b border-dashed border-gray-400'
+                    ? "cursor-pointer text-blue-600 underline"
+                    : "cursor-pointer border-b border-dashed border-gray-400"
                 }
                 title="Click to set a link"
               >

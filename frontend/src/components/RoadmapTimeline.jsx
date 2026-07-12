@@ -1,30 +1,35 @@
-import { useEffect, useRef, useState } from 'react';
-import { getRoadmap, createMilestone, updateMilestone, deleteMilestone } from '../api';
+import { useEffect, useRef, useState } from "react";
+import {
+  getRoadmap,
+  createMilestone,
+  updateMilestone,
+  deleteMilestone,
+} from "../api";
 
 const STATUS_META = {
   upcoming: {
-    label: 'Upcoming',
-    ringClass: 'border-slate-300',
-    markerClass: 'bg-white',
-    activeClass: 'border-gray-400 bg-gray-400 text-white',
-    inactiveClass: 'border-gray-200 bg-transparent text-gray-400',
+    label: "Upcoming",
+    ringClass: "border-slate-300",
+    markerClass: "bg-white",
+    activeClass: "border-gray-400 bg-gray-400 text-white",
+    inactiveClass: "border-gray-200 bg-transparent text-gray-400",
   },
   in_progress: {
-    label: 'In progress',
-    ringClass: 'border-blue-600',
-    markerClass: 'bg-blue-600',
-    activeClass: 'border-blue-600 bg-blue-600 text-white',
-    inactiveClass: 'border-gray-200 bg-transparent text-blue-600',
+    label: "In progress",
+    ringClass: "border-blue-600",
+    markerClass: "bg-blue-600",
+    activeClass: "border-blue-600 bg-blue-600 text-white",
+    inactiveClass: "border-gray-200 bg-transparent text-blue-600",
   },
   done: {
-    label: 'Done',
-    ringClass: 'border-green-600',
-    markerClass: 'bg-green-600',
-    activeClass: 'border-green-600 bg-green-600 text-white',
-    inactiveClass: 'border-gray-200 bg-transparent text-green-600',
+    label: "Done",
+    ringClass: "border-green-600",
+    markerClass: "bg-green-600",
+    activeClass: "border-green-600 bg-green-600 text-white",
+    inactiveClass: "border-gray-200 bg-transparent text-green-600",
   },
 };
-const STATUS_ORDER = ['upcoming', 'in_progress', 'done'];
+const STATUS_ORDER = ["upcoming", "in_progress", "done"];
 
 const clamp = (n, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 // Evenly distribute n nodes across the line, with insets so end labels don't clip.
@@ -35,7 +40,7 @@ export default function RoadmapTimeline({ id }) {
   const [order, setOrder] = useState([]); // milestone ids, in sequence
   const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState(null); // milestone whose menu is open
-  const [titleDraft, setTitleDraft] = useState('');
+  const [titleDraft, setTitleDraft] = useState("");
   const [draggingId, setDraggingId] = useState(null);
   const [dragPct, setDragPct] = useState(null); // live pointer % for dragged node
 
@@ -55,8 +60,8 @@ export default function RoadmapTimeline({ id }) {
   const ordered = order.map(byId).filter(Boolean);
   const n = ordered.length;
   const total = milestones.length;
-  const doneCount = milestones.filter((m) => m.status === 'done').length;
-  const current = milestones.find((m) => m.status === 'in_progress');
+  const doneCount = milestones.filter((m) => m.status === "done").length;
+  const current = milestones.find((m) => m.status === "in_progress");
 
   // Progress fill reaches the current node's slot, else the furthest done node, else 0.
   let fillIndex = -1;
@@ -64,14 +69,16 @@ export default function RoadmapTimeline({ id }) {
     fillIndex = order.indexOf(current.id);
   } else {
     order.forEach((mid, i) => {
-      if (byId(mid)?.status === 'done') fillIndex = i;
+      if (byId(mid)?.status === "done") fillIndex = i;
     });
   }
   const fillPct = fillIndex >= 0 ? slotLeft(fillIndex, n) : 0;
 
   // ----- helpers -----
   const patchLocal = (mId, patch) =>
-    setMilestones((prev) => prev.map((m) => (m.id === mId ? { ...m, ...patch } : m)));
+    setMilestones((prev) =>
+      prev.map((m) => (m.id === mId ? { ...m, ...patch } : m))
+    );
 
   const persist = async (mId, body) => {
     const updated = await updateMilestone(id, mId, body);
@@ -92,12 +99,15 @@ export default function RoadmapTimeline({ id }) {
       prev.map((m) => {
         const i = seq.indexOf(m.id);
         return i >= 0 && m.position !== i ? { ...m, position: i } : m;
-      }),
+      })
     );
   };
 
   const add = async () => {
-    const created = await createMilestone(id, { title: 'New task', position: order.length });
+    const created = await createMilestone(id, {
+      title: "New task",
+      position: order.length,
+    });
     if (created && created.id) {
       setMilestones((prev) => [...prev, created]);
       setOrder((prev) => [...prev, created.id]);
@@ -120,7 +130,7 @@ export default function RoadmapTimeline({ id }) {
       const next = cur === mid ? null : mid;
       if (next) {
         const m = byId(mid);
-        setTitleDraft(m ? m.title : '');
+        setTitleDraft(m ? m.title : "");
       }
       return next;
     });
@@ -160,7 +170,11 @@ export default function RoadmapTimeline({ id }) {
     setDragPct(pct);
     setOrder((prev) => {
       const ci = prev.indexOf(mid);
-      const ti = clamp(Math.round((pct / 100) * (prev.length - 1)), 0, prev.length - 1);
+      const ti = clamp(
+        Math.round((pct / 100) * (prev.length - 1)),
+        0,
+        prev.length - 1
+      );
       if (ti === ci) return prev;
       const next = [...prev];
       next.splice(ci, 1);
@@ -187,16 +201,16 @@ export default function RoadmapTimeline({ id }) {
 
   // ----- keyboard -----
   const onNodeKeyDown = (e, mid) => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
-      moveInOrder(mid, e.key === 'ArrowLeft' ? -1 : 1);
-    } else if (e.key === 'Enter' || e.key === ' ') {
+      moveInOrder(mid, e.key === "ArrowLeft" ? -1 : 1);
+    } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       openMenu(mid);
-    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    } else if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       remove(mid);
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       setOpenId(null);
     }
   };
@@ -208,7 +222,9 @@ export default function RoadmapTimeline({ id }) {
     >
       <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="m-0 text-[1.1rem] font-semibold text-gray-900">Roadmap</h2>
+          <h2 className="m-0 text-[1.1rem] font-semibold text-gray-900">
+            Roadmap
+          </h2>
           <p className="mb-0 mt-[3px] text-[0.82rem] text-gray-400">
             Arrange your sequence of events and track where you are.
           </p>
@@ -233,14 +249,19 @@ export default function RoadmapTimeline({ id }) {
         </div>
       </header>
 
-      <div ref={trackRef} className="relative mt-2 h-[124px] w-full" role="group" aria-label="Timeline track">
+      <div
+        ref={trackRef}
+        className="relative mt-2 h-[124px] w-full"
+        role="group"
+        aria-label="Timeline track"
+      >
         {/* base + progress line */}
         <div className="pointer-events-none absolute left-0 right-0 top-[61px] z-[2] h-1 rounded-full bg-[#eef2f6]" />
         <div
           className="pointer-events-none absolute left-0 top-[61px] z-[3] h-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-500"
           style={{
             width: `${fillPct}%`,
-            transition: draggingId ? 'none' : 'width .45s ease',
+            transition: draggingId ? "none" : "width .45s ease",
           }}
         />
 
@@ -252,7 +273,7 @@ export default function RoadmapTimeline({ id }) {
 
         {ordered.map((m, i) => {
           const meta = STATUS_META[m.status] || STATUS_META.upcoming;
-          const isCurrent = m.status === 'in_progress';
+          const isCurrent = m.status === "in_progress";
           const isOpen = openId === m.id;
           const isDragging = draggingId === m.id;
           const left = isDragging && dragPct != null ? dragPct : slotLeft(i, n);
@@ -264,13 +285,17 @@ export default function RoadmapTimeline({ id }) {
               style={{
                 left: `${left}%`,
                 zIndex: isOpen ? 60 : isDragging ? 40 : 10,
-                transition: isDragging ? 'none' : 'left .3s cubic-bezier(.22,1,.36,1)',
+                transition: isDragging
+                  ? "none"
+                  : "left .3s cubic-bezier(.22,1,.36,1)",
               }}
             >
               {/* label (always above the line) */}
               <span
                 className={`pointer-events-none absolute left-0 top-4 max-w-[130px] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[7px] border bg-white px-[9px] py-1 text-[0.78rem] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${
-                  isCurrent ? 'border-blue-600 text-blue-600' : 'border-gray-200 text-gray-700'
+                  isCurrent
+                    ? "border-blue-600 text-blue-600"
+                    : "border-gray-200 text-gray-700"
                 }`}
               >
                 {m.title}
@@ -283,16 +308,19 @@ export default function RoadmapTimeline({ id }) {
                 aria-label={`${m.title} — ${meta.label}. Use arrow keys to reorder, Enter to edit, Delete to remove.`}
                 aria-expanded={isOpen}
                 className={`absolute left-0 top-[63px] flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center rounded-full border-[2.5px] p-0 shadow-[0_1px_3px_rgba(16,24,40,0.18)] outline-none transition-[transform,background,border-color] duration-200 hover:brightness-[1.02] focus-visible:shadow-[0_0_0_3px_rgba(37,99,235,.35)] ${meta.ringClass} ${meta.markerClass} ${
-                  isCurrent ? 'animate-rtBlink scale-[1.12]' : ''
-                } ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  isCurrent ? "animate-rtBlink scale-[1.12]" : ""
+                } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
                 onPointerDown={(e) => onNodePointerDown(e, m.id)}
                 onPointerMove={(e) => onNodePointerMove(e, m.id)}
                 onPointerUp={(e) => onNodePointerUp(e, m.id)}
                 onKeyDown={(e) => onNodeKeyDown(e, m.id)}
               >
-                {m.status === 'done' && <CheckIcon />}
-                {m.status === 'in_progress' && (
-                  <span className="h-[7px] w-[7px] rounded-full bg-white" aria-hidden="true" />
+                {m.status === "done" && <CheckIcon />}
+                {m.status === "in_progress" && (
+                  <span
+                    className="h-[7px] w-[7px] rounded-full bg-white"
+                    aria-hidden="true"
+                  />
                 )}
               </button>
 
@@ -302,9 +330,9 @@ export default function RoadmapTimeline({ id }) {
                   className="absolute left-0 top-[92px] z-[80] w-[232px] -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-3 shadow-[0_12px_32px_rgba(16,24,40,0.16)]"
                   style={
                     left > 80
-                      ? { left: 'auto', right: 0, transform: 'none' }
+                      ? { left: "auto", right: 0, transform: "none" }
                       : left < 20
-                        ? { left: 0, transform: 'none' }
+                        ? { left: 0, transform: "none" }
                         : {}
                   }
                   role="dialog"
@@ -317,11 +345,11 @@ export default function RoadmapTimeline({ id }) {
                     onChange={(e) => setTitleDraft(e.target.value)}
                     onBlur={() => commitTitle(m)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         commitTitle(m);
                         setOpenId(null);
                       }
-                      if (e.key === 'Escape') {
+                      if (e.key === "Escape") {
                         setTitleDraft(m.title);
                         setOpenId(null);
                       }
@@ -329,7 +357,11 @@ export default function RoadmapTimeline({ id }) {
                     placeholder="Task title"
                     className="mb-2.5 w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[0.85rem] text-gray-700 outline-none"
                   />
-                  <div className="mb-2.5 flex gap-1.5" role="group" aria-label="Set status">
+                  <div
+                    className="mb-2.5 flex gap-1.5"
+                    role="group"
+                    aria-label="Set status"
+                  >
                     {STATUS_ORDER.map((s) => {
                       const sm = STATUS_META[s];
                       const active = m.status === s;

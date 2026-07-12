@@ -1,6 +1,6 @@
-import { Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import MetricPage from './pages/MetricPage';
+import { Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import MetricPage from "./pages/MetricPage";
 
 export default function App() {
   return (

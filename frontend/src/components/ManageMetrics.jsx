@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { createMetric, updateMetric, deleteMetric } from '../api';
+import { useState } from "react";
+import { createMetric, updateMetric, deleteMetric } from "../api";
 
 export default function ManageMetrics({ metrics, onClose, onReload }) {
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [editId, setEditId] = useState(null);
-  const [editName, setEditName] = useState('');
+  const [editName, setEditName] = useState("");
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
     await createMetric(newName.trim());
-    setNewName('');
+    setNewName("");
     onReload();
   };
 
@@ -65,7 +65,9 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
             />
           ))}
           {metrics.length === 0 && (
-            <li className="py-3 text-center text-[0.8rem] text-white/30">No metrics yet</li>
+            <li className="py-3 text-center text-[0.8rem] text-white/30">
+              No metrics yet
+            </li>
           )}
         </ul>
 
@@ -74,7 +76,7 @@ export default function ManageMetrics({ metrics, onClose, onReload }) {
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="New metric…"
             className="flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-[7px] text-[0.85rem] text-white outline-none"
           />
@@ -108,8 +110,8 @@ function MetricRow({
             value={editName}
             onChange={(e) => onEditNameChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') onSaveEdit();
-              if (e.key === 'Escape') onCancelEdit();
+              if (e.key === "Enter") onSaveEdit();
+              if (e.key === "Escape") onCancelEdit();
             }}
             autoFocus
             className="flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-[7px] text-[0.82rem] text-white outline-none"
@@ -129,7 +131,9 @@ function MetricRow({
         </>
       ) : (
         <>
-          <span className="flex-1 text-[0.85rem] font-light text-white/80">{metric.name}</span>
+          <span className="flex-1 text-[0.85rem] font-light text-white/80">
+            {metric.name}
+          </span>
           <button
             onClick={onStartEdit}
             className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-teal opacity-0 transition-opacity group-hover:opacity-100"

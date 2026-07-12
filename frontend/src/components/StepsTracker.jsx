@@ -1,19 +1,32 @@
-import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getSteps, saveGoal, saveSteps } from '../api';
-import { fmt, toKey } from '../stepsUtil';
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { getSteps, saveGoal, saveSteps } from "../api";
+import { fmt, toKey } from "../stepsUtil";
 
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 const sliderClass =
-  'flex-1 h-1 appearance-none rounded bg-black/10 outline-none ' +
-  '[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(45,212,191,0.18)] ' +
-  '[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-teal';
+  "flex-1 h-1 appearance-none rounded bg-black/10 outline-none " +
+  "[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(45,212,191,0.18)] " +
+  "[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-teal";
 
 const numberClass =
-  '[&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none';
+  "[&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none";
 
 const startOfWeek = (d) => {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -39,7 +52,7 @@ export default function StepsTracker({ id }) {
 
   useEffect(() => {
     getSteps(id).then((data) => {
-      if (data && typeof data.goal === 'number') setGoal(data.goal);
+      if (data && typeof data.goal === "number") setGoal(data.goal);
       if (data && data.entries) setEntries(data.entries);
       loaded.current = true;
     });
@@ -59,13 +72,17 @@ export default function StepsTracker({ id }) {
 
   const rangeLabel = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]} — ${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()]}`;
   const stateLabel =
-    weekOffset === 0 ? 'Current week' : weekOffset > 0 ? 'Upcoming week' : 'Finished week';
+    weekOffset === 0
+      ? "Current week"
+      : weekOffset > 0
+        ? "Upcoming week"
+        : "Finished week";
   const finished = weekOffset < 0;
 
   const dayStatus = (key) => {
     const steps = entries[key];
-    if (steps == null || steps <= 0) return 'none';
-    return steps >= goal ? 'done' : 'almost';
+    if (steps == null || steps <= 0) return "none";
+    return steps >= goal ? "done" : "almost";
   };
 
   const openEditor = (d, key) => {
@@ -91,7 +108,7 @@ export default function StepsTracker({ id }) {
   return (
     <div className="relative h-screen min-h-screen w-screen overflow-y-auto bg-white font-sans text-black">
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate("/")}
         className="absolute left-7 top-7 z-20 cursor-pointer border-none bg-transparent p-0 text-[0.65rem] uppercase tracking-[0.18em] text-black/25 transition-colors hover:text-black/60"
       >
         ← Back
@@ -119,8 +136,8 @@ export default function StepsTracker({ id }) {
                   onClick={() => commitGoal(k * 1000)}
                   className={`cursor-pointer rounded-full border px-4 py-[7px] text-[0.8rem] tracking-[0.04em] transition-all ${
                     active
-                      ? 'border-teal bg-teal font-semibold text-slate-900'
-                      : 'border-black/15 bg-transparent text-black/55'
+                      ? "border-teal bg-teal font-semibold text-slate-900"
+                      : "border-black/15 bg-transparent text-black/55"
                   }`}
                 >
                   {k}k
@@ -130,7 +147,9 @@ export default function StepsTracker({ id }) {
           </div>
 
           <div className="flex w-full max-w-[440px] items-center gap-3.5">
-            <span className="text-[0.65rem] tracking-[0.1em] text-black/30">1k</span>
+            <span className="text-[0.65rem] tracking-[0.1em] text-black/30">
+              1k
+            </span>
             <input
               type="range"
               min={1}
@@ -142,7 +161,9 @@ export default function StepsTracker({ id }) {
               onTouchEnd={(e) => commitGoal(Number(e.target.value) * 1000)}
               className={sliderClass}
             />
-            <span className="text-[0.65rem] tracking-[0.1em] text-black/30">20k</span>
+            <span className="text-[0.65rem] tracking-[0.1em] text-black/30">
+              20k
+            </span>
           </div>
         </section>
 
@@ -161,7 +182,7 @@ export default function StepsTracker({ id }) {
               </div>
               <div
                 className={`text-[0.6rem] uppercase tracking-[0.2em] ${
-                  finished ? 'text-white/40' : 'text-white/55'
+                  finished ? "text-white/40" : "text-white/55"
                 }`}
               >
                 {stateLabel}
@@ -177,7 +198,7 @@ export default function StepsTracker({ id }) {
 
           <div
             className={`grid grid-cols-7 gap-2 transition-[opacity,filter] duration-300 ${
-              finished ? 'opacity-[0.42] [filter:saturate(0.6)]' : ''
+              finished ? "opacity-[0.42] [filter:saturate(0.6)]" : ""
             }`}
           >
             {days.map((d, i) => {
@@ -186,32 +207,37 @@ export default function StepsTracker({ id }) {
               const isFuture = key > todayKey;
               const status = dayStatus(key);
               const markClass =
-                status === 'done'
-                  ? 'bg-teal text-slate-900'
-                  : status === 'almost'
-                    ? 'bg-amber-500 text-slate-900'
-                    : 'bg-black/5 text-black/30';
-              const mark = status === 'done' ? '✓' : status === 'almost' ? '◔' : '–';
+                status === "done"
+                  ? "bg-teal text-slate-900"
+                  : status === "almost"
+                    ? "bg-amber-500 text-slate-900"
+                    : "bg-black/5 text-black/30";
+              const mark =
+                status === "done" ? "✓" : status === "almost" ? "◔" : "–";
               return (
                 <button
                   key={key}
                   disabled={isFuture}
                   onClick={() => !isFuture && openEditor(d, key)}
                   className={`flex flex-col items-center gap-2 rounded-[14px] bg-black/[0.02] px-1 py-3 transition-all ${
-                    isFuture ? 'cursor-default opacity-35' : 'cursor-pointer opacity-100'
-                  } ${isToday ? 'border border-black/45' : 'border border-black/[0.08]'}`}
+                    isFuture
+                      ? "cursor-default opacity-35"
+                      : "cursor-pointer opacity-100"
+                  } ${isToday ? "border border-black/45" : "border border-black/[0.08]"}`}
                 >
                   <span className="text-[0.58rem] uppercase tracking-[0.12em] text-black/40">
                     {WEEKDAYS[i]}
                   </span>
-                  <span className="text-[0.95rem] font-light text-slate-900">{d.getDate()}</span>
+                  <span className="text-[0.95rem] font-light text-slate-900">
+                    {d.getDate()}
+                  </span>
                   <span
                     className={`flex h-[26px] w-[26px] items-center justify-center rounded-full text-[0.8rem] font-bold ${markClass}`}
                   >
                     {mark}
                   </span>
                   <span className="min-h-[0.7rem] text-[0.55rem] tracking-[0.02em] text-black/40">
-                    {entries[key] ? fmt(entries[key]) : ''}
+                    {entries[key] ? fmt(entries[key]) : ""}
                   </span>
                 </button>
               );
@@ -222,13 +248,16 @@ export default function StepsTracker({ id }) {
         {/* ---- Legend ---- */}
         <section className="flex flex-wrap justify-center gap-6 text-[0.65rem] uppercase tracking-[0.1em] text-black/45">
           <span className="flex items-center gap-2">
-            <i className="inline-block h-2.5 w-2.5 rounded-full bg-teal" /> goal reached
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-teal" /> goal
+            reached
           </span>
           <span className="flex items-center gap-2">
-            <i className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" /> almost
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />{" "}
+            almost
           </span>
           <span className="flex items-center gap-2">
-            <i className="inline-block h-2.5 w-2.5 rounded-full bg-black/[0.18]" /> no data
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-black/[0.18]" />{" "}
+            no data
           </span>
         </section>
       </div>
@@ -261,7 +290,8 @@ export default function StepsTracker({ id }) {
                 <span className="text-teal">✓ Goal reached</span>
               ) : (
                 <span className="text-amber-400">
-                  ◔ {fmt(Math.max(0, goal - Math.round(draft || 0)))} steps to goal
+                  ◔ {fmt(Math.max(0, goal - Math.round(draft || 0)))} steps to
+                  goal
                 </span>
               )}
             </div>
@@ -281,7 +311,9 @@ export default function StepsTracker({ id }) {
               </button>
               <button
                 className="flex-1 cursor-pointer rounded-[10px] border border-white/10 bg-white/5 py-[9px] text-[0.72rem] tracking-[0.03em] text-white/80"
-                onClick={() => setDraft((v) => Math.max(0, (Number(v) || 0) - 1000))}
+                onClick={() =>
+                  setDraft((v) => Math.max(0, (Number(v) || 0) - 1000))
+                }
               >
                 −1000
               </button>
