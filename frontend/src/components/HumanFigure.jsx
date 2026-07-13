@@ -6,7 +6,6 @@ export default function HumanFigure({ onHover, onUnhover }) {
       <img
         src={figureImg}
         alt=""
-        draggable={false}
         onMouseEnter={onHover}
         onMouseLeave={onUnhover}
         className={`absolute bottom-[4.5vh] left-1/2 -translate-x-1/2 h-[80vh] w-auto select-none ${
