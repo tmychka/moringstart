@@ -1,22 +1,22 @@
-const js = require("@eslint/js");
-const globals = require("globals");
+const js = require('@eslint/js');
+const globals = require('globals');
 
 module.exports = [
-  { ignores: ["node_modules/**", "*.sqlite"] },
+  { ignores: ['node_modules/**', '*.sqlite'] },
   js.configs.recommended,
   {
-    files: ["**/*.js"],
+    files: ['**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: "commonjs",
+      sourceType: 'commonjs',
       globals: {
         ...globals.node,
       },
     },
     rules: {
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-      "no-console": "off",
-      eqeqeq: ["warn", "smart"],
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-console': 'off',
+      eqeqeq: ['warn', 'smart'],
     },
   },
 ];

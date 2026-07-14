@@ -15,15 +15,7 @@ export default function Home() {
   const reload = () => getMetrics().then(setMetrics).catch(console.error);
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100vw",
-        height: "100vh",
-        background: "white",
-        overflow: "hidden",
-      }}
-    >
+    <div className="relative w-screen h-screen bg-white overflow-hidden">
       {/* 3D canvas */}
       <HumanFigure rotate={false} />
 
@@ -31,27 +23,8 @@ export default function Home() {
       <MetricsOverlay metrics={metrics} visible={true} />
 
       {/* App title */}
-      <div
-        style={{
-          position: "absolute",
-          top: "32px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          textAlign: "center",
-          pointerEvents: "none",
-          zIndex: 20,
-        }}
-      >
-        <p
-          style={{
-            fontSize: "0.65rem",
-            letterSpacing: "0.3em",
-            textTransform: "uppercase",
-            color: "black",
-            margin: 0,
-            fontWeight: 300,
-          }}
-        >
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-20">
+        <p className="m-0 text-[0.65rem] tracking-[0.3em] uppercase text-black font-light">
           Morning Start
         </p>
       </div>
@@ -59,32 +32,7 @@ export default function Home() {
       {/* Manage metrics button */}
       <button
         onClick={() => setShowManage(true)}
-        style={{
-          position: "absolute",
-          bottom: "28px",
-          right: "28px",
-          background: "none",
-          border: "1px solid #134e4a",
-          color: "green",
-          borderRadius: "8px",
-          padding: "7px 16px",
-          fontSize: "0.65rem",
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          fontFamily: "inherit",
-          fontWeight: 400,
-          zIndex: 20,
-          transition: "color 0.2s, border-color 0.2s",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = "#0736ab";
-          e.currentTarget.style.borderColor = "#0736ab";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = "#134e4a";
-          e.currentTarget.style.borderColor = "#134e4a";
-        }}
+        className="absolute bottom-7 right-7 z-20 bg-transparent border border-[#134e4a] text-[#134e4a] rounded-lg py-[7px] px-4 text-[0.65rem] tracking-[0.18em] uppercase cursor-pointer font-normal font-[inherit] transition-colors duration-200 hover:text-[#0736ab] hover:border-[#0736ab]"
       >
         Metrics
       </button>
