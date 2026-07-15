@@ -1,52 +1,45 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import StepsTracker from "../components/StepsTracker";
 import Notebook from "../components/Notebook";
+import { getMetrics } from "../api";
 
 export default function MetricPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { data: metrics = [], isLoading } = useQuery({
+    queryKey: ["metrics"],
+    queryFn: getMetrics,
+  });
+  const metric = metrics.find((m) => String(m.id) === String(id));
 
-  if (id === "1") return <Notebook id={id} />;
-  if (id === "4") return <StepsTracker id={id} />;
+  if (metric?.type === "notebook") return <Notebook id={id} />;
+  if (metric?.type === "steps") return <StepsTracker id={id} />;
 
+  // Generic metric (or still loading / unknown): a simple placeholder page.
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100vw",
-        height: "100vh",
-        background: "#0a0f1e",
-        overflow: "hidden",
-      }}
-    >
-      {/* Subtle back navigation */}
+    <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-navy px-6 text-center text-white">
       <button
         onClick={() => navigate("/")}
-        style={{
-          position: "absolute",
-          top: "28px",
-          left: "28px",
-          background: "none",
-          border: "none",
-          color: "rgba(255,255,255,0.15)",
-          fontSize: "0.65rem",
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          cursor: "pointer",
-          fontFamily: "inherit",
-          zIndex: 20,
-          transition: "color 0.2s",
-          padding: 0,
-        }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.color = "rgba(255,255,255,0.6)")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.color = "rgba(255,255,255,0.15)")
-        }
+        className="absolute left-7 top-7 z-20 cursor-pointer border-none bg-transparent p-0 text-[0.65rem] uppercase tracking-[0.18em] text-white/25 transition-colors hover:text-white/60"
       >
         ← Back
       </button>
+
+      {metric ? (
+        <>
+          <h1 className="m-0 text-[2rem] font-extralight tracking-[0.02em]">
+            {metric.name}
+          </h1>
+          <p className="mt-3 text-[0.8rem] uppercase tracking-[0.2em] text-white/40">
+            Tracking for this metric is coming soon
+          </p>
+        </>
+      ) : (
+        <p className="text-[0.8rem] uppercase tracking-[0.2em] text-white/40">
+          {isLoading ? "Loading…" : "Metric not found"}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-toastify";
 import {
   getRoadmap,
   createMilestone,
@@ -36,9 +38,13 @@ const clamp = (n, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 const slotLeft = (index, n) => (n <= 1 ? 50 : 6 + (index / (n - 1)) * 88);
 
 export default function RoadmapTimeline({ id }) {
-  const [milestones, setMilestones] = useState([]);
+  const queryClient = useQueryClient();
+  const { data: milestones = [], isSuccess: loaded } = useQuery({
+    queryKey: ["roadmap", id],
+    queryFn: () => getRoadmap(id),
+  });
+
   const [order, setOrder] = useState([]); // milestone ids, in sequence
-  const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState(null); // milestone whose menu is open
   const [titleDraft, setTitleDraft] = useState("");
   const [draggingId, setDraggingId] = useState(null);
@@ -47,14 +53,24 @@ export default function RoadmapTimeline({ id }) {
   const trackRef = useRef(null);
   const dragState = useRef(null); // { id, startX, moved }
 
-  useEffect(() => {
-    getRoadmap(id).then((rows) => {
-      const list = Array.isArray(rows) ? rows : [];
-      setMilestones(list);
-      setOrder(list.map((r) => r.id));
-      setLoaded(true);
+  // Keep the local sequence in sync with server data without an effect: when the SET of
+  // milestone ids changes, preserve the current order for surviving ids and append new
+  // ones (by position). Position-only changes (e.g. a reorder we just saved) don't
+  // re-sync, so the user's drag order isn't clobbered.
+  const [syncedIds, setSyncedIds] = useState(null);
+  const idsKey = milestones.map((m) => m.id).join(",");
+  if (idsKey !== syncedIds) {
+    setSyncedIds(idsKey);
+    setOrder((prev) => {
+      const ids = milestones.map((m) => m.id);
+      const kept = prev.filter((mid) => ids.includes(mid));
+      const added = milestones
+        .filter((m) => !prev.includes(m.id))
+        .sort((a, b) => a.position - b.position)
+        .map((m) => m.id);
+      return [...kept, ...added];
     });
-  }, [id]);
+  }
 
   const byId = (mid) => milestones.find((m) => m.id === mid);
   const ordered = order.map(byId).filter(Boolean);
@@ -75,14 +91,44 @@ export default function RoadmapTimeline({ id }) {
   const fillPct = fillIndex >= 0 ? slotLeft(fillIndex, n) : 0;
 
   // ----- helpers -----
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["roadmap", id] });
+  const setCache = (updater) =>
+    queryClient.setQueryData(["roadmap", id], (prev = []) => updater(prev));
   const patchLocal = (mId, patch) =>
-    setMilestones((prev) =>
+    setCache((prev) =>
       prev.map((m) => (m.id === mId ? { ...m, ...patch } : m))
     );
 
-  const persist = async (mId, body) => {
-    const updated = await updateMilestone(id, mId, body);
-    if (updated && updated.id) patchLocal(mId, updated);
+  const updateMut = useMutation({
+    mutationFn: ({ mId, body }) => updateMilestone(id, mId, body),
+    onSettled: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (mid) => deleteMilestone(id, mid),
+    onSuccess: (_res, mid) =>
+      setCache((prev) => prev.filter((m) => m.id !== mid)),
+    onSettled: invalidate,
+  });
+  const addMut = useMutation({
+    mutationFn: () =>
+      createMilestone(id, { title: "New task", position: order.length }),
+    onSuccess: (created) => {
+      if (!created?.id) return;
+      setCache((prev) => [...prev, created]);
+      setOrder((prev) =>
+        prev.includes(created.id) ? prev : [...prev, created.id]
+      );
+      setOpenId(created.id);
+      setTitleDraft(created.title);
+    },
+  });
+
+  // Optimistically patch, then persist; the onSettled refetch reconciles server-side
+  // normalization (e.g. only one in-progress node per metric).
+  const persist = (mId, body) => {
+    patchLocal(mId, body);
+    updateMut.mutate({ mId, body });
   };
 
   const pctFromClientX = (clientX) => {
@@ -92,35 +138,30 @@ export default function RoadmapTimeline({ id }) {
 
   // Renumber positions to match a sequence order; persist only the ones that moved.
   const persistOrder = (seq) => {
-    seq.forEach((mid, i) => {
-      if (byId(mid)?.position !== i) updateMilestone(id, mid, { position: i });
-    });
-    setMilestones((prev) =>
+    const changed = seq.filter((mid, i) => byId(mid)?.position !== i);
+    if (changed.length === 0) return;
+    setCache((prev) =>
       prev.map((m) => {
         const i = seq.indexOf(m.id);
-        return i >= 0 && m.position !== i ? { ...m, position: i } : m;
+        return i >= 0 ? { ...m, position: i } : m;
       })
     );
+    Promise.all(
+      changed.map((mid) =>
+        updateMilestone(id, mid, { position: seq.indexOf(mid) })
+      )
+    ).catch((err) => {
+      toast.error(err.message);
+      invalidate();
+    });
   };
 
-  const add = async () => {
-    const created = await createMilestone(id, {
-      title: "New task",
-      position: order.length,
-    });
-    if (created && created.id) {
-      setMilestones((prev) => [...prev, created]);
-      setOrder((prev) => [...prev, created.id]);
-      setOpenId(created.id);
-      setTitleDraft(created.title);
-    }
-  };
+  const add = () => addMut.mutate();
 
   const setStatus = (m, status) => persist(m.id, { status });
 
-  const remove = async (mid) => {
-    await deleteMilestone(id, mid);
-    setMilestones((prev) => prev.filter((m) => m.id !== mid));
+  const remove = (mid) => {
+    removeMut.mutate(mid);
     setOrder((prev) => prev.filter((x) => x !== mid));
     if (openId === mid) setOpenId(null);
   };

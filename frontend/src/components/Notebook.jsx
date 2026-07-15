@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getNotes, createNote, updateNote, deleteNote } from "../api";
 import RoadmapTimeline from "./RoadmapTimeline";
 
@@ -22,28 +23,41 @@ const fmtDate = (s) => {
 
 export default function Notebook({ id }) {
   const navigate = useNavigate();
-  const [notes, setNotes] = useState([]);
+  const queryClient = useQueryClient();
+  const { data: notes = [] } = useQuery({
+    queryKey: ["notes", id],
+    queryFn: () => getNotes(id),
+  });
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState(null); // note being text-edited
   const [editDraft, setEditDraft] = useState("");
   const [linkModeId, setLinkModeId] = useState(null); // note with "Edit links" on
   const [activeWord, setActiveWord] = useState(null); // { noteId, wordIndex, draft }
 
-  useEffect(() => {
-    getNotes(id).then(setNotes);
-  }, [id]);
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["notes", id] });
 
-  const add = async () => {
+  const addMut = useMutation({
+    mutationFn: (content) => createNote(id, content),
+    onSuccess: invalidate,
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ noteId, body }) => updateNote(id, noteId, body),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (noteId) => deleteNote(id, noteId),
+    onSuccess: invalidate,
+  });
+
+  const add = () => {
     const content = newContent.trim();
     if (!content) return;
-    const note = await createNote(id, content);
-    setNotes((prev) => [note, ...prev]);
-    setNewContent("");
+    addMut.mutate(content, { onSuccess: () => setNewContent("") });
   };
 
-  const remove = async (noteId) => {
-    await deleteNote(id, noteId);
-    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+  const remove = (noteId) => {
+    removeMut.mutate(noteId);
     if (linkModeId === noteId) setLinkModeId(null);
     if (activeWord?.noteId === noteId) setActiveWord(null);
   };
@@ -55,23 +69,25 @@ export default function Notebook({ id }) {
     setActiveWord(null);
   };
 
-  const saveEdit = async (note) => {
+  const saveEdit = (note) => {
     const content = editDraft.trim();
     if (!content) return;
-    const updated = await updateNote(id, note.id, { content });
-    setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)));
-    setEditingId(null);
+    updateMut.mutate(
+      { noteId: note.id, body: { content } },
+      { onSuccess: () => setEditingId(null) }
+    );
   };
 
-  const saveLink = async (note) => {
+  const saveLink = (note) => {
     const { wordIndex, draft } = activeWord;
     const links = { ...note.links };
     const url = draft.trim();
     if (url) links[wordIndex] = url;
     else delete links[wordIndex];
-    const updated = await updateNote(id, note.id, { links });
-    setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)));
-    setActiveWord(null);
+    updateMut.mutate(
+      { noteId: note.id, body: { links } },
+      { onSuccess: () => setActiveWord(null) }
+    );
   };
 
   return (

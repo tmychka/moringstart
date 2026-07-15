@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import StepsQuickPanel from "./StepsQuickPanel";
 
-const STEPS_METRIC_ID = 4;
-
 // Angles: 0°=right, 90°=up(CSS top), 180°=left, 270°=bottom
 // Arcs are defined as angular ranges so any number of metrics can be laid out.
 const LEFT_RANGE = [140, 210]; // top-left → bottom-left
@@ -46,17 +44,11 @@ function useWindowSize() {
   return size;
 }
 
-export default function MetricsOverlay({
-  metrics,
-  visible,
-  onLabelEnter,
-  onLabelLeave,
-}) {
+export default function MetricsOverlay({ metrics }) {
   const navigate = useNavigate();
   const { w, h } = useWindowSize();
-  const displayed = metrics;
-  const leftCount = leftCountFor(displayed.length);
-  const allAngles = computeAngles(displayed.length);
+  const leftCount = leftCountFor(metrics.length);
+  const allAngles = computeAngles(metrics.length);
   const cx = w / 2;
   const cy = h / 2 - 88;
 
@@ -78,7 +70,7 @@ export default function MetricsOverlay({
             </feMerge>
           </filter>
         </defs>
-        {displayed.map((metric, i) => {
+        {metrics.map((metric, i) => {
           const θ = toRad(allAngles[i]);
           const lx = cx + R * Math.cos(θ);
           const ly = cy - R * Math.sin(θ);
@@ -91,16 +83,15 @@ export default function MetricsOverlay({
               y2={ly}
               stroke="black"
               strokeWidth="0.8"
-              strokeOpacity={visible ? 0.28 : 0}
+              strokeOpacity={0.28}
               filter="url(#lineglow)"
-              style={{ transition: "stroke-opacity 0.15s ease" }}
             />
           );
         })}
       </svg>
 
       {/* Labels */}
-      {displayed.map((metric, i) => {
+      {metrics.map((metric, i) => {
         const θ = toRad(allAngles[i]);
         const xOff = R * Math.cos(θ);
         const yOff = R * Math.sin(θ);
@@ -115,10 +106,7 @@ export default function MetricsOverlay({
             xOff={xOff}
             yOff={yOff}
             isLeft={isLeft}
-            visible={visible}
             onNavigate={() => navigate(`/metric/${metric.id}`)}
-            onEnter={onLabelEnter}
-            onLeave={onLabelLeave}
           />
         );
       })}
@@ -126,21 +114,10 @@ export default function MetricsOverlay({
   );
 }
 
-function MetricLabel({
-  metric,
-  cx,
-  cy,
-  xOff,
-  yOff,
-  isLeft,
-  visible,
-  onNavigate,
-  onEnter,
-  onLeave,
-}) {
+function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, onNavigate }) {
   const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
-  const isSteps = Number(metric.id) === STEPS_METRIC_ID;
+  const isSteps = metric.type === "steps";
   const wrapRef = useRef(null);
 
   // Close the quick panel when clicking anywhere outside of it.
@@ -157,33 +134,25 @@ function MetricLabel({
   return (
     <div
       ref={wrapRef}
-      className={`metric-label absolute ${isLeft ? "pr-2.5" : "pl-2.5"} ${
-        visible ? "metric-label-visible" : "metric-label-hidden"
-      }`}
+      className={`metric-label pointer-events-auto absolute ${isLeft ? "pr-2.5" : "pl-2.5"}`}
       style={{
         left: cx + xOff,
         top: cy - yOff,
         transform: `translate(${isLeft ? "-100%" : "0%"}, -50%)`,
       }}
-      onMouseEnter={() => {
-        setHovered(true);
-        onEnter?.();
-      }}
-      onMouseLeave={() => {
-        setHovered(false);
-        onLeave?.();
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <span className="inline-flex items-center gap-[7px]">
-        <span
+        <button
           onClick={onNavigate}
-          className={`inline-block cursor-pointer select-none whitespace-nowrap text-[0.83rem] font-medium tracking-[0.07em] text-black transition-[transform,color,filter] duration-150 ease-in-out ${
+          className={`inline-block cursor-pointer select-none whitespace-nowrap border-none bg-transparent p-0 font-[inherit] text-[0.83rem] font-medium tracking-[0.07em] text-black transition-[transform,color,filter] duration-150 ease-in-out ${
             hovered ? "scale-110" : "scale-100"
           }`}
           style={{ transformOrigin: isLeft ? "right center" : "left center" }}
         >
           {metric.name}
-        </span>
+        </button>
 
         {isSteps && (
           <button

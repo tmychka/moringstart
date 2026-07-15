@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSteps, saveGoal, saveSteps } from "../api";
 import { fmt, toKey } from "../stepsUtil";
 
@@ -43,25 +44,39 @@ const addDays = (d, n) => {
 
 export default function StepsTracker({ id }) {
   const navigate = useNavigate();
-  const [goal, setGoal] = useState(10000);
-  const [entries, setEntries] = useState({});
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["steps", id],
+    queryFn: () => getSteps(id),
+  });
+  const serverGoal = typeof data?.goal === "number" ? data.goal : 10000;
+  const entries = data?.entries ?? {};
+
+  const [goalDraft, setGoalDraft] = useState(null); // non-null only while dragging the slider
+  const goal = goalDraft ?? serverGoal;
   const [weekOffset, setWeekOffset] = useState(0);
   const [editing, setEditing] = useState(null); // { key, label }
   const [draft, setDraft] = useState(0);
-  const loaded = useRef(false);
 
-  useEffect(() => {
-    getSteps(id).then((data) => {
-      if (data && typeof data.goal === "number") setGoal(data.goal);
-      if (data && data.entries) setEntries(data.entries);
-      loaded.current = true;
-    });
-  }, [id]);
+  const setStepsCache = (updater) =>
+    queryClient.setQueryData(["steps", id], (prev) =>
+      updater(prev ?? { goal: 10000, entries: {} })
+    );
+
+  const goalMut = useMutation({
+    mutationFn: (g) => saveGoal(id, g),
+    onError: () => queryClient.invalidateQueries({ queryKey: ["steps", id] }),
+  });
+  const stepsMut = useMutation({
+    mutationFn: ({ date, steps }) => saveSteps(id, date, steps),
+    onError: () => queryClient.invalidateQueries({ queryKey: ["steps", id] }),
+  });
 
   const commitGoal = (g) => {
     const clamped = Math.max(1000, Math.min(20000, g));
-    setGoal(clamped);
-    if (loaded.current) saveGoal(id, clamped);
+    setGoalDraft(null);
+    setStepsCache((prev) => ({ ...prev, goal: clamped }));
+    goalMut.mutate(clamped);
   };
 
   const today = new Date();
@@ -95,13 +110,14 @@ export default function StepsTracker({ id }) {
 
   const saveDraft = () => {
     const steps = Math.max(0, Math.round(draft) || 0);
-    setEntries((prev) => {
-      const next = { ...prev };
-      if (steps > 0) next[editing.key] = steps;
-      else delete next[editing.key];
-      return next;
+    const date = editing.key;
+    setStepsCache((prev) => {
+      const nextEntries = { ...prev.entries };
+      if (steps > 0) nextEntries[date] = steps;
+      else delete nextEntries[date];
+      return { ...prev, entries: nextEntries };
     });
-    saveSteps(id, editing.key, steps);
+    stepsMut.mutate({ date, steps });
     setEditing(null);
   };
 
@@ -156,7 +172,7 @@ export default function StepsTracker({ id }) {
               max={20}
               step={1}
               value={Math.round(goal / 1000)}
-              onChange={(e) => setGoal(Number(e.target.value) * 1000)}
+              onChange={(e) => setGoalDraft(Number(e.target.value) * 1000)}
               onMouseUp={(e) => commitGoal(Number(e.target.value) * 1000)}
               onTouchEnd={(e) => commitGoal(Number(e.target.value) * 1000)}
               className={sliderClass}
@@ -182,7 +198,7 @@ export default function StepsTracker({ id }) {
               </div>
               <div
                 className={`text-[0.6rem] uppercase tracking-[0.2em] ${
-                  finished ? "text-white/40" : "text-white/55"
+                  finished ? "text-black/40" : "text-black/55"
                 }`}
               >
                 {stateLabel}

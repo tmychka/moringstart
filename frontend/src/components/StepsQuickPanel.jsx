@@ -1,39 +1,50 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSteps, saveSteps } from "../api";
 import { fmt, toKey } from "../stepsUtil";
 
 // Compact "log today's steps" card shown under the steps metric label on hover.
 export default function StepsQuickPanel({ id, isLeft }) {
-  const [goal, setGoal] = useState(10000);
+  const queryClient = useQueryClient();
+  const todayKey = toKey(new Date());
+  const { data } = useQuery({
+    queryKey: ["steps", id],
+    queryFn: () => getSteps(id),
+  });
+  const goal = typeof data?.goal === "number" ? data.goal : 10000;
+
   const [draft, setDraft] = useState(0);
   const [saved, setSaved] = useState(false);
-  const loaded = useRef(false);
+  const initialized = useRef(false);
 
-  const todayKey = toKey(new Date());
-
+  // Seed the input from today's saved value the first time data is available.
   useEffect(() => {
-    getSteps(id).then((data) => {
-      if (data && typeof data.goal === "number") setGoal(data.goal);
-      const today = data && data.entries ? data.entries[todayKey] : 0;
-      setDraft(today || 0);
-      loaded.current = true;
-    });
-  }, [id, todayKey]);
+    if (data && !initialized.current) {
+      setDraft(data.entries?.[todayKey] ?? 0);
+      initialized.current = true;
+    }
+  }, [data, todayKey]);
 
-  const reached = draft >= goal && draft > 0;
-  const pct =
-    goal > 0
-      ? Math.min(100, Math.round(((Number(draft) || 0) / goal) * 100))
-      : 0;
+  const value = Number(draft) || 0;
+  const reached = value >= goal && value > 0;
+  const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
 
-  const save = () => {
-    if (!loaded.current) return;
-    const steps = Math.max(0, Math.round(Number(draft)) || 0);
-    saveSteps(id, todayKey, steps).then(() => {
+  const saveMut = useMutation({
+    mutationFn: (steps) => saveSteps(id, todayKey, steps),
+    onSuccess: (res) => {
+      queryClient.setQueryData(["steps", id], (prev) => {
+        const base = prev ?? { goal, entries: {} };
+        const entries = { ...base.entries };
+        if (res.steps > 0) entries[todayKey] = res.steps;
+        else delete entries[todayKey];
+        return { ...base, entries };
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
-    });
-  };
+    },
+  });
+
+  const save = () => saveMut.mutate(Math.max(0, Math.round(value)));
 
   const stop = (e) => e.stopPropagation();
 
@@ -51,7 +62,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
 
       <div className="text-[1.05rem] font-normal leading-none tracking-[0.02em] text-slate-900">
         <span className={reached ? "text-teal" : "text-amber-500"}>
-          {fmt(Number(draft) || 0)}
+          {fmt(value)}
         </span>
         <span className="text-black/35"> / {fmt(goal)}</span>
       </div>

@@ -1,29 +1,56 @@
 import { useState } from "react";
-import { createMetric, updateMetric, deleteMetric } from "../api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-toastify";
+import { getMetrics, createMetric, updateMetric, deleteMetric } from "../api";
 
-export default function ManageMetrics({ metrics, onClose, onReload }) {
+export default function ManageMetrics({ onClose }) {
+  const queryClient = useQueryClient();
+  const { data: metrics = [] } = useQuery({
+    queryKey: ["metrics"],
+    queryFn: getMetrics,
+  });
   const [newName, setNewName] = useState("");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
 
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    await createMetric(newName.trim());
-    setNewName("");
-    onReload();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["metrics"] });
+
+  const createMut = useMutation({
+    mutationFn: (name) => createMetric(name),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Metric added");
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, name }) => updateMetric(id, name),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Metric updated");
+    },
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id) => deleteMetric(id),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Metric deleted");
+    },
+  });
+
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    createMut.mutate(name, { onSuccess: () => setNewName("") });
   };
 
-  const handleSaveEdit = async (id) => {
-    if (!editName.trim()) return;
-    await updateMetric(id, editName.trim());
-    setEditId(null);
-    onReload();
+  const handleSaveEdit = (id) => {
+    const name = editName.trim();
+    if (!name) return;
+    updateMut.mutate({ id, name }, { onSuccess: () => setEditId(null) });
   };
 
-  const handleDelete = async (id) => {
-    await deleteMetric(id);
-    onReload();
-  };
+  const handleDelete = (id) => deleteMut.mutate(id);
 
   const startEdit = (metric) => {
     setEditId(metric.id);
