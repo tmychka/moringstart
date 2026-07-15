@@ -19,13 +19,3 @@ body {
     opacity 0.45s ease,
     transform 0.45s ease;
 }
-
-.metric-label-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.metric-label-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
