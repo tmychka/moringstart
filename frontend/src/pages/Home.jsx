@@ -1,26 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import HumanFigure from "../components/HumanFigure";
 import MetricsOverlay from "../components/MetricsOverlay";
 import ManageMetrics from "../components/ManageMetrics";
 import { getMetrics } from "../api";
 
 export default function Home() {
-  const [metrics, setMetrics] = useState([]);
   const [showManage, setShowManage] = useState(false);
-
-  useEffect(() => {
-    getMetrics().then(setMetrics).catch(console.error);
-  }, []);
-
-  const reload = () => getMetrics().then(setMetrics).catch(console.error);
+  const { data: metrics = [] } = useQuery({
+    queryKey: ["metrics"],
+    queryFn: getMetrics,
+  });
 
   return (
     <div className="relative w-screen h-screen bg-white overflow-hidden">
-      {/* 3D canvas */}
-      <HumanFigure rotate={false} />
+      {/* Human figure */}
+      <HumanFigure />
 
       {/* Metrics arc */}
-      <MetricsOverlay metrics={metrics} visible={true} />
+      <MetricsOverlay metrics={metrics} />
 
       {/* App title */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-20">
@@ -38,13 +36,7 @@ export default function Home() {
       </button>
 
       {/* Manage modal */}
-      {showManage && (
-        <ManageMetrics
-          metrics={metrics}
-          onClose={() => setShowManage(false)}
-          onReload={reload}
-        />
-      )}
+      {showManage && <ManageMetrics onClose={() => setShowManage(false)} />}
     </div>
   );
 }
