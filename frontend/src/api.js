@@ -1,67 +1,56 @@
-const BASE = "/metrics";
+// In dev, VITE_API_URL is empty and requests go through the Vite proxy (see vite.config.js).
+// In production, set VITE_API_URL to the backend origin (e.g. https://api.example.com).
+const API_URL = import.meta.env.VITE_API_URL ?? "";
+const BASE = `${API_URL}/metrics`;
 
-export const getMetrics = () => fetch(BASE).then((r) => r.json());
-export const createMetric = (name) =>
-  fetch(BASE, {
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+// Single fetch wrapper: throws on non-2xx (so TanStack Query / toast can surface the
+// error) and parses JSON, returning null for empty (204) responses.
+async function request(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+const post = (url, body) =>
+  request(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  }).then((r) => r.json());
-export const updateMetric = (id, name) =>
-  fetch(`${BASE}/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  }).then((r) => r.json());
-export const deleteMetric = (id) =>
-  fetch(`${BASE}/${id}`, { method: "DELETE" });
-
-export const getSteps = (id) =>
-  fetch(`${BASE}/${id}/steps`).then((r) => r.json());
-export const saveGoal = (id, goal) =>
-  fetch(`${BASE}/${id}/goal`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ goal }),
-  }).then((r) => r.json());
-export const saveSteps = (id, date, steps) =>
-  fetch(`${BASE}/${id}/steps`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ date, steps }),
-  }).then((r) => r.json());
-
-export const getNotes = (id) =>
-  fetch(`${BASE}/${id}/notes`).then((r) => r.json());
-export const createNote = (id, content) =>
-  fetch(`${BASE}/${id}/notes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  }).then((r) => r.json());
-export const updateNote = (id, noteId, body) =>
-  fetch(`${BASE}/${id}/notes/${noteId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: JSON_HEADERS,
     body: JSON.stringify(body),
-  }).then((r) => r.json());
-export const deleteNote = (id, noteId) =>
-  fetch(`${BASE}/${id}/notes/${noteId}`, { method: "DELETE" });
+  });
+const put = (url, body) =>
+  request(url, {
+    method: "PUT",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+const del = (url) => request(url, { method: "DELETE" });
+
+export const getMetrics = () => request(BASE);
+export const createMetric = (name, type) => post(BASE, { name, type });
+export const updateMetric = (id, name) => put(`${BASE}/${id}`, { name });
+export const deleteMetric = (id) => del(`${BASE}/${id}`);
+
+export const getSteps = (id) => request(`${BASE}/${id}/steps`);
+export const saveGoal = (id, goal) => put(`${BASE}/${id}/goal`, { goal });
+export const saveSteps = (id, date, steps) =>
+  put(`${BASE}/${id}/steps`, { date, steps });
+
+export const getNotes = (id) => request(`${BASE}/${id}/notes`);
+export const createNote = (id, content) =>
+  post(`${BASE}/${id}/notes`, { content });
+export const updateNote = (id, noteId, body) =>
+  put(`${BASE}/${id}/notes/${noteId}`, body);
+export const deleteNote = (id, noteId) => del(`${BASE}/${id}/notes/${noteId}`);
 
 // Roadmap timeline
-export const getRoadmap = (id) =>
-  fetch(`${BASE}/${id}/roadmap`).then((r) => r.json());
+export const getRoadmap = (id) => request(`${BASE}/${id}/roadmap`);
 export const createMilestone = (id, body) =>
-  fetch(`${BASE}/${id}/roadmap`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then((r) => r.json());
+  post(`${BASE}/${id}/roadmap`, body);
 export const updateMilestone = (id, mId, body) =>
-  fetch(`${BASE}/${id}/roadmap/${mId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then((r) => r.json());
-export const deleteMilestone = (id, mId) =>
-  fetch(`${BASE}/${id}/roadmap/${mId}`, { method: "DELETE" });
+  put(`${BASE}/${id}/roadmap/${mId}`, body);
+export const deleteMilestone = (id, mId) => del(`${BASE}/${id}/roadmap/${mId}`);

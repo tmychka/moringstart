@@ -7,9 +7,22 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS metrics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'generic',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `);
+
+// Migration: add `type` to metrics tables created before it existed, and backfill the
+// two special metrics from the original seed so existing dev DBs keep their behavior.
+const hasType = db
+  .prepare('PRAGMA table_info(metrics)')
+  .all()
+  .some((col) => col.name === 'type');
+if (!hasType) {
+  db.exec("ALTER TABLE metrics ADD COLUMN type TEXT NOT NULL DEFAULT 'generic'");
+  db.exec("UPDATE metrics SET type = 'notebook' WHERE id = 1 AND type = 'generic'");
+  db.exec("UPDATE metrics SET type = 'steps' WHERE id = 4 AND type = 'generic'");
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS step_goals (
@@ -52,16 +65,16 @@ db.exec(`
 
 const count = db.prepare('SELECT COUNT(*) as c FROM metrics').get();
 if (count.c === 0) {
-  const insert = db.prepare('INSERT INTO metrics (name) VALUES (?)');
+  const insert = db.prepare('INSERT INTO metrics (name, type) VALUES (?, ?)');
   [
-    'Learn to code',
-    'Learn English',
-    'Training',
-    'Min 10,000 steps',
-    'No content',
-    'Not bad food',
-    'Quality sleep',
-  ].forEach((name) => insert.run(name));
+    ['Learn to code', 'notebook'],
+    ['Learn English', 'generic'],
+    ['Training', 'generic'],
+    ['Min 10,000 steps', 'steps'],
+    ['No content', 'generic'],
+    ['Not bad food', 'generic'],
+    ['Quality sleep', 'generic'],
+  ].forEach(([name, type]) => insert.run(name, type));
 }
 
 module.exports = db;

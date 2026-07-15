@@ -8,15 +8,19 @@ const PORT = 3000;
 app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
 
+const METRIC_TYPES = ['generic', 'steps', 'notebook'];
+const metricExists = (id) => !!db.prepare('SELECT 1 FROM metrics WHERE id = ?').get(id);
+
 app.get('/metrics', (req, res) => {
   const rows = db.prepare('SELECT * FROM metrics ORDER BY created_at ASC').all();
   res.json(rows);
 });
 
 app.post('/metrics', (req, res) => {
-  const { name } = req.body;
+  const { name, type } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
-  const info = db.prepare('INSERT INTO metrics (name) VALUES (?)').run(name.trim());
+  const t = METRIC_TYPES.includes(type) ? type : 'generic';
+  const info = db.prepare('INSERT INTO metrics (name, type) VALUES (?, ?)').run(name.trim(), t);
   const row = db.prepare('SELECT * FROM metrics WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json(row);
 });
@@ -33,9 +37,22 @@ app.put('/metrics/:id', (req, res) => {
 });
 
 app.delete('/metrics/:id', (req, res) => {
-  const info = db.prepare('DELETE FROM metrics WHERE id = ?').run(req.params.id);
-  if (info.changes === 0) return res.status(404).json({ error: 'not found' });
-  res.status(204).end();
+  const id = Number(req.params.id);
+  // Remove the metric and all of its child rows atomically so no orphans are left behind.
+  db.exec('BEGIN');
+  try {
+    db.prepare('DELETE FROM step_entries WHERE metric_id = ?').run(id);
+    db.prepare('DELETE FROM step_goals WHERE metric_id = ?').run(id);
+    db.prepare('DELETE FROM notes WHERE metric_id = ?').run(id);
+    db.prepare('DELETE FROM roadmap_milestones WHERE metric_id = ?').run(id);
+    const info = db.prepare('DELETE FROM metrics WHERE id = ?').run(id);
+    db.exec('COMMIT');
+    if (info.changes === 0) return res.status(404).json({ error: 'not found' });
+    res.status(204).end();
+  } catch {
+    db.exec('ROLLBACK');
+    res.status(500).json({ error: 'delete failed' });
+  }
 });
 
 // --- Steps tracker ---
@@ -52,6 +69,7 @@ app.get('/metrics/:id/steps', (req, res) => {
 
 app.put('/metrics/:id/goal', (req, res) => {
   const metricId = Number(req.params.id);
+  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
   const goal = Number(req.body.goal);
   if (!Number.isInteger(goal) || goal < 1000 || goal > 20000) {
     return res.status(400).json({ error: 'goal must be an integer between 1000 and 20000' });
@@ -67,6 +85,7 @@ app.put('/metrics/:id/goal', (req, res) => {
 
 app.put('/metrics/:id/steps', (req, res) => {
   const metricId = Number(req.params.id);
+  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
   const { date } = req.body;
   const steps = Number(req.body.steps);
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -102,6 +121,7 @@ app.get('/metrics/:id/notes', (req, res) => {
 
 app.post('/metrics/:id/notes', (req, res) => {
   const metricId = Number(req.params.id);
+  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
   const { content } = req.body;
   if (!content || !content.trim()) return res.status(400).json({ error: 'content required' });
   const info = db
@@ -155,6 +175,7 @@ app.get('/metrics/:id/roadmap', (req, res) => {
 
 app.post('/metrics/:id/roadmap', (req, res) => {
   const metricId = Number(req.params.id);
+  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
   const { title, position } = req.body;
   if (!title || !title.trim()) return res.status(400).json({ error: 'title required' });
   let pos = 50;
