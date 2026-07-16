@@ -16,7 +16,6 @@ export default function MetricPage() {
   if (metric?.type === "notebook") return <Notebook id={id} />;
   if (metric?.type === "steps") return <StepsTracker id={id} />;
 
-  // Generic metric (or still loading / unknown): a simple placeholder page.
   return (
     <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-navy px-6 text-center text-white">
       <button
