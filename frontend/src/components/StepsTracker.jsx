@@ -131,7 +131,6 @@ export default function StepsTracker({ id }) {
       </button>
 
       <div className="mx-auto flex max-w-[720px] flex-col gap-14 px-6 pb-16 pt-24">
-        {/* ---- Goal ---- */}
         <section className="flex flex-col items-center gap-[22px]">
           <div className="text-[0.65rem] font-light uppercase tracking-[0.3em] text-black/40">
             Daily goal
