@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSteps, saveSteps } from "../api";
 import { fmt, toKey } from "../stepsUtil";
 
-// Compact "log today's steps" card shown under the steps metric label on hover.
 export default function StepsQuickPanel({ id, isLeft }) {
   const queryClient = useQueryClient();
   const todayKey = toKey(new Date());
