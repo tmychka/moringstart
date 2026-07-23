@@ -14,10 +14,8 @@ export default function Home() {
 
   return (
     <div className="relative w-screen h-screen bg-white overflow-hidden">
-      {/* Human figure */}
       <HumanFigure />
 
-      {/* Metrics arc */}
       <MetricsOverlay metrics={metrics} />
 
       {/* App title */}
