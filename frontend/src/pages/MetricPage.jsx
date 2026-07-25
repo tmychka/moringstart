@@ -2,7 +2,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import StepsTracker from "../components/StepsTracker";
 import Notebook from "../components/Notebook";
+import EnglishWords from "../components/EnglishWords";
 import { getMetrics } from "../api";
+
+// "Learn English" is seeded as a generic metric, so it's routed by id instead of type.
+const ENGLISH_METRIC_ID = "2";
 
 export default function MetricPage() {
   const { id } = useParams();
@@ -13,6 +17,7 @@ export default function MetricPage() {
   });
   const metric = metrics.find((m) => String(m.id) === String(id));
 
+  if (String(id) === ENGLISH_METRIC_ID) return <EnglishWords />;
   if (metric?.type === "notebook") return <Notebook id={id} />;
   if (metric?.type === "steps") return <StepsTracker id={id} />;
 
