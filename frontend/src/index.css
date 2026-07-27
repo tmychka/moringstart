@@ -6,6 +6,22 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  overscroll-behavior-x: none;
+}
+
+:root {
+  --carousel-dot: #134e4a;
+}
+
+/* The dots overlay every slide, so the dark-theme colour has to stay legible on
+   both the dark dashboard and the white Home page — hence a mid-tone teal
+   rather than something tuned to the dark background alone. */
+:root[data-theme="dark"] {
+  --carousel-dot: #0d9488;
+}
+
 body {
   background-color: #0a0f1e;
   color: white;
