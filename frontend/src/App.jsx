@@ -1,6 +1,8 @@
 import { Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Carousel from "./components/Carousel";
+import Dashboard from "./components/Dashboard";
 import Home from "./pages/Home";
 import MetricPage from "./pages/MetricPage";
 
@@ -8,7 +10,15 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route
+          path="/"
+          element={
+            <Carousel initial={0}>
+              <Dashboard />
+              <Home />
+            </Carousel>
+          }
+        />
         <Route path="/metric/:id" element={<MetricPage />} />
       </Routes>
       <ToastContainer position="bottom-right" autoClose={3500} theme="dark" />
