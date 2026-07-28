@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { getMetrics, getNotes, getRoadmap, getSteps } from "../api";
+import ManageMetrics from "./ManageMetrics";
+import Sidebar from "./Sidebar";
 import { fmt, toKey } from "../stepsUtil";
 import {
   bestStreak,
@@ -45,6 +47,11 @@ const THEMES = {
     track: "#eceef1",
     goalLine: "rgba(19,78,74,0.25)",
     progressDot: "#2563eb",
+    sidebar: "border-[#eceef1] bg-white",
+    sidebarItem: "text-[#6b7076] hover:bg-[#f4f6f6] hover:text-[#16171a]",
+    sidebarItemActive: "bg-[#e9eeed] text-[#16171a]",
+    sidebarBadge: "bg-[#f1f3f5] text-[#8b9097] hover:bg-[#e6e9ec]",
+    sidebarCard: "bg-[#f4f6f7]",
   },
   dark: {
     page: "bg-navy bg-[radial-gradient(120%_90%_at_50%_0%,#13203a_0%,#0a0f1e_58%)] text-white",
@@ -65,6 +72,11 @@ const THEMES = {
     track: "rgba(255,255,255,0.09)",
     goalLine: "rgba(45,212,191,0.3)",
     progressDot: "#60a5fa",
+    sidebar: "border-white/[0.06] bg-[#070b16]",
+    sidebarItem: "text-white/45 hover:bg-white/[0.06] hover:text-white",
+    sidebarItemActive: "bg-white/[0.09] text-white",
+    sidebarBadge: "bg-white/[0.06] text-white/45 hover:bg-white/[0.12]",
+    sidebarCard: "bg-white/[0.05]",
   },
 };
 
@@ -151,6 +163,7 @@ export default function Dashboard() {
   const now = useNow();
   const words = useEnglishWords();
   const [theme, setTheme] = useTheme();
+  const [showManage, setShowManage] = useState(false);
   const t = THEMES[theme];
 
   const { data: metrics = [] } = useQuery({
@@ -228,174 +241,160 @@ export default function Dashboard() {
         ? "Goal reached"
         : `${fmt(goal - todaySteps)} steps to go`;
 
-  const metricSubtitle = (metric) => {
-    const id = String(metric.id);
-    if (id === ENGLISH_METRIC_ID)
-      return `${words.length} ${words.length === 1 ? "word" : "words"}`;
-    if (metric.type === "steps") {
-      const days = Object.keys(stepsByMetric.get(id)?.entries ?? {}).length;
-      return `${days} ${days === 1 ? "day" : "days"} logged`;
-    }
-    if (metric.type === "notebook") {
-      const count = notesByMetric.get(id)?.length ?? 0;
-      const done =
-        roadmapByMetric.get(id)?.filter((m) => m.status === "done").length ?? 0;
-      return `${count} ${count === 1 ? "note" : "notes"} · ${done} done`;
-    }
-    return "Not tracked yet";
-  };
+  // Shortcuts to the pages the dashboard already summarises; each one is only
+  // offered when the metric behind it exists.
+  const quickLinks = [
+    ...(primary
+      ? [{ icon: "activity", label: "Steps", to: `/metric/${primary.id}` }]
+      : []),
+    ...(notebook
+      ? [{ icon: "notes", label: "Notes", to: `/metric/${notebook.id}` }]
+      : []),
+    ...(metrics.some((m) => String(m.id) === ENGLISH_METRIC_ID)
+      ? [
+          {
+            icon: "book",
+            label: "Vocabulary",
+            to: `/metric/${ENGLISH_METRIC_ID}`,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div
-      className={`h-full w-full overflow-y-auto transition-colors duration-300 ${t.page}`}
+      className={`relative flex h-full w-full overflow-hidden transition-colors duration-300 ${t.page}`}
     >
-      <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-3 px-6 pb-16 pt-8 sm:px-8">
-        <Header now={now} t={t} theme={theme} onTheme={setTheme} />
+      <Sidebar
+        t={t}
+        theme={theme}
+        onTheme={setTheme}
+        metrics={metrics}
+        onOpenMetric={(id) => navigate(`/metric/${id}`)}
+        onManageMetrics={() => setShowManage(true)}
+        onNavigate={navigate}
+        quickLinks={quickLinks}
+      />
 
-        <div className="grid grid-cols-12 gap-3">
-          <section
-            className={`${cardClass(t)} col-span-12 flex items-center gap-5 md:col-span-5`}
-          >
-            <ProgressRing progress={progress} muted={!hasSteps} t={t} />
-            <div className="min-w-0">
-              <p className={labelClass(t)}>Today</p>
-              <p
-                className={`m-0 mt-2 text-[2.1rem] leading-none ${numeralClass}`}
-              >
-                {hasSteps ? fmt(todaySteps) : "—"}
-              </p>
-              <p className={`m-0 mt-2 truncate text-[0.78rem] ${t.body}`}>
-                {todayHint}
-              </p>
-              {hasSteps && (
-                <p className={`m-0 mt-1 text-[0.7rem] ${t.muted}`}>
-                  Goal {fmt(goal)}
-                </p>
-              )}
-            </div>
-          </section>
+      <div className="h-full flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-3 px-6 pb-16 pt-8 sm:px-8">
+          <Header now={now} t={t} theme={theme} onTheme={setTheme} />
 
-          <Stat
-            t={t}
-            className="col-span-6 md:col-span-2"
-            label="Streak"
-            value={hasSteps ? streak : "—"}
-            hint={hasSteps ? `Best ${record}` : "No data"}
-          />
-          <Stat
-            t={t}
-            className="col-span-6 md:col-span-2"
-            label="Daily avg"
-            value={stats.average ? fmt(stats.average) : "—"}
-            hint={`${WINDOW_DAYS}-day window`}
-          />
-          <section className={`${cardClass(t)} col-span-12 md:col-span-3`}>
-            <p className={labelClass(t)}>Goal hit rate</p>
-            <p
-              className={`m-0 mt-2 text-[1.8rem] leading-none ${numeralClass}`}
+          <div className="grid grid-cols-12 gap-3">
+            <section
+              className={`${cardClass(t)} col-span-12 flex items-center gap-5 md:col-span-5`}
             >
-              {stats.loggedDays ? `${Math.round(stats.hitRate * 100)}%` : "—"}
-            </p>
-            <Meter ratio={stats.hitRate} t={t} />
-            <p className={`m-0 mt-2 text-[0.7rem] ${t.muted}`}>
-              {stats.hitDays} of {stats.loggedDays} logged days
-            </p>
-          </section>
+              <ProgressRing progress={progress} muted={!hasSteps} t={t} />
+              <div className="min-w-0">
+                <p className={labelClass(t)}>Today</p>
+                <p
+                  className={`m-0 mt-2 text-[2.1rem] leading-none ${numeralClass}`}
+                >
+                  {hasSteps ? fmt(todaySteps) : "—"}
+                </p>
+                <p className={`m-0 mt-2 truncate text-[0.78rem] ${t.body}`}>
+                  {todayHint}
+                </p>
+                {hasSteps && (
+                  <p className={`m-0 mt-1 text-[0.7rem] ${t.muted}`}>
+                    Goal {fmt(goal)}
+                  </p>
+                )}
+              </div>
+            </section>
 
-          <section className={`${cardClass(t)} col-span-12 md:col-span-8`}>
-            <div className="flex items-baseline justify-between gap-3">
-              <p className={labelClass(t)}>Last {CHART_DAYS} days</p>
-              <p className={`m-0 text-[0.7rem] ${t.muted}`}>
-                {stats.best
-                  ? `Best ${fmt(stats.best.steps)} · ${WINDOW_DAYS}-day total ${fmt(stats.total)}`
-                  : "No entries yet"}
-              </p>
-            </div>
-            <StepsChart
-              days={chart}
-              max={chartMax}
-              goal={goal}
-              today={todayKey}
+            <Stat
               t={t}
+              className="col-span-6 md:col-span-2"
+              label="Streak"
+              value={hasSteps ? streak : "—"}
+              hint={hasSteps ? `Best ${record}` : "No data"}
             />
-          </section>
-
-          <Stat
-            t={t}
-            className="col-span-6 md:col-span-2"
-            label="Vocabulary"
-            value={words.length}
-            hint={
-              words.length
-                ? words
-                    .slice(0, 2)
-                    .map((w) => w.term)
-                    .join(" · ")
-                : "No words saved"
-            }
-            onClick={() => navigate(`/metric/${ENGLISH_METRIC_ID}`)}
-          />
-          <Stat
-            t={t}
-            className="col-span-6 md:col-span-2"
-            label="Notes"
-            value={notes?.length ?? 0}
-            hint={
-              notes?.length
-                ? `Updated ${timeAgo(notes[0].updated_at, now)}`
-                : "Nothing written yet"
-            }
-            onClick={
-              notebook ? () => navigate(`/metric/${notebook.id}`) : undefined
-            }
-          />
-
-          <section className={`${cardClass(t)} col-span-12 md:col-span-5`}>
-            <p className={labelClass(t)}>Roadmap</p>
-            <Roadmap
-              milestones={milestones}
+            <Stat
               t={t}
+              className="col-span-6 md:col-span-2"
+              label="Daily avg"
+              value={stats.average ? fmt(stats.average) : "—"}
+              hint={`${WINDOW_DAYS}-day window`}
+            />
+            <section className={`${cardClass(t)} col-span-12 md:col-span-3`}>
+              <p className={labelClass(t)}>Goal hit rate</p>
+              <p
+                className={`m-0 mt-2 text-[1.8rem] leading-none ${numeralClass}`}
+              >
+                {stats.loggedDays ? `${Math.round(stats.hitRate * 100)}%` : "—"}
+              </p>
+              <Meter ratio={stats.hitRate} t={t} />
+              <p className={`m-0 mt-2 text-[0.7rem] ${t.muted}`}>
+                {stats.hitDays} of {stats.loggedDays} logged days
+              </p>
+            </section>
+
+            <section className={`${cardClass(t)} col-span-12`}>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className={labelClass(t)}>Last {CHART_DAYS} days</p>
+                <p className={`m-0 text-[0.7rem] ${t.muted}`}>
+                  {stats.best
+                    ? `Best ${fmt(stats.best.steps)} · ${WINDOW_DAYS}-day total ${fmt(stats.total)}`
+                    : "No entries yet"}
+                </p>
+              </div>
+              <StepsChart
+                days={chart}
+                max={chartMax}
+                goal={goal}
+                today={todayKey}
+                t={t}
+              />
+            </section>
+
+            <Roadmap
+              t={t}
+              className="col-span-12 md:col-span-4"
+              milestones={milestones}
               onOpen={
                 notebook ? () => navigate(`/metric/${notebook.id}`) : undefined
               }
             />
-          </section>
-
-          <section
-            className={`${cardClass(t)} col-span-12 md:col-span-7 flex flex-col`}
-          >
-            <p className={labelClass(t)}>All metrics</p>
-            <ul className="m-0 mt-3 grid list-none grid-cols-1 gap-1 p-0 sm:grid-cols-2">
-              {metrics.map((metric) => (
-                <li key={metric.id}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/metric/${metric.id}`)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-xl border-none bg-transparent px-3 py-1.5 text-left transition-colors ${t.rowHover}`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-[0.83rem] font-medium tracking-[0.01em]">
-                        {metric.name}
-                      </span>
-                      <span
-                        className={`block truncate text-[0.68rem] ${t.muted}`}
-                      >
-                        {metricSubtitle(metric)}
-                      </span>
-                    </span>
-                    <span className={`text-[0.8rem] ${t.faint}`}>→</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
+            <Stat
+              t={t}
+              className="col-span-6 md:col-span-4"
+              label="Vocabulary"
+              value={words.length}
+              hint={
+                words.length
+                  ? words
+                      .slice(0, 2)
+                      .map((w) => w.term)
+                      .join(" · ")
+                  : "No words saved"
+              }
+              onClick={() => navigate(`/metric/${ENGLISH_METRIC_ID}`)}
+            />
+            <Stat
+              t={t}
+              className="col-span-6 md:col-span-4"
+              label="Notes"
+              value={notes?.length ?? 0}
+              hint={
+                notes?.length
+                  ? `Updated ${timeAgo(notes[0].updated_at, now)}`
+                  : "Nothing written yet"
+              }
+              onClick={
+                notebook ? () => navigate(`/metric/${notebook.id}`) : undefined
+              }
+            />
+          </div>
         </div>
       </div>
+
+      {showManage && <ManageMetrics onClose={() => setShowManage(false)} />}
     </div>
   );
 }
 
-function Header({ now, t, theme, onTheme }) {
+function Header({ now, t }) {
   const date = now.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -422,39 +421,8 @@ function Header({ now, t, theme, onTheme }) {
         >
           {time}
         </p>
-        <ThemeToggle theme={theme} onTheme={onTheme} t={t} />
       </div>
     </header>
-  );
-}
-
-function ThemeToggle({ theme, onTheme, t }) {
-  const options = [
-    { value: "light", glyph: "☀", label: "Light background" },
-    { value: "dark", glyph: "☾", label: "Dark background" },
-  ];
-
-  return (
-    <div
-      role="group"
-      aria-label="Background"
-      className={`flex items-center gap-0.5 rounded-full border p-0.5 ${t.card}`}
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onTheme(option.value)}
-          aria-label={option.label}
-          aria-pressed={theme === option.value}
-          className={`h-7 w-7 cursor-pointer rounded-full border-none text-[0.75rem] leading-none transition-colors ${
-            theme === option.value ? t.toggleOn : t.toggleOff
-          }`}
-        >
-          {option.glyph}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -594,49 +562,98 @@ function StepsChart({ days, max, goal, today, t }) {
   );
 }
 
-function Roadmap({ milestones, onOpen, t }) {
-  if (!milestones?.length) {
+function Roadmap({ milestones, onOpen, className = "", t }) {
+  const total = milestones?.length ?? 0;
+  const done = milestones?.filter((m) => m.status === "done").length ?? 0;
+  const current = milestones?.find((m) => m.status === "in_progress");
+
+  const body = (
+    <>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className={labelClass(t)}>Roadmap</p>
+        {total > 0 && (
+          <p className={`m-0 text-[0.7rem] ${t.muted}`}>
+            {Math.round((done / total) * 100)}%
+          </p>
+        )}
+      </div>
+      {total === 0 ? (
+        <p className={`m-0 mt-2 text-[0.78rem] ${t.muted}`}>
+          No milestones yet
+        </p>
+      ) : (
+        <>
+          <p className={`m-0 mt-2 text-[1.8rem] leading-none ${numeralClass}`}>
+            {done}
+            <span className={`ml-2 text-[0.8rem] ${t.muted}`}>of {total}</span>
+          </p>
+          <MilestoneTrack milestones={milestones} t={t} />
+          <p
+            className={`m-0 mt-2 flex items-center gap-2 truncate text-[0.7rem] ${t.muted}`}
+          >
+            {current ? (
+              <>
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: t.progressDot }}
+                />
+                <span className="truncate">{current.title}</span>
+              </>
+            ) : (
+              "Nothing in progress"
+            )}
+          </p>
+        </>
+      )}
+    </>
+  );
+
+  const layout = "flex flex-col justify-center";
+
+  if (!onOpen) {
     return (
-      <p className={`m-0 mt-3 text-[0.78rem] ${t.muted}`}>No milestones yet</p>
+      <section className={`${cardClass(t)} ${className} ${layout}`}>
+        {body}
+      </section>
     );
   }
 
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`${cardClass(t)} ${className} ${layout} w-full cursor-pointer text-left transition-colors ${t.cardHover}`}
+    >
+      {body}
+    </button>
+  );
+}
+
+// One pill per milestone reads the roadmap at a glance; long roadmaps would
+// shear into slivers, so those fall back to a plain progress bar.
+function MilestoneTrack({ milestones, t }) {
   const done = milestones.filter((m) => m.status === "done").length;
-  const current = milestones.find((m) => m.status === "in_progress");
+
+  if (milestones.length > 14) {
+    return <Meter ratio={done / milestones.length} t={t} />;
+  }
 
   return (
-    <>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className={`text-[1.8rem] leading-none ${numeralClass}`}>
-          {done}
-        </span>
-        <span className={`text-[0.8rem] ${t.muted}`}>
-          of {milestones.length} done
-        </span>
-      </div>
-      <Meter ratio={done / milestones.length} t={t} />
-      <p className={`m-0 mt-3 truncate text-[0.78rem] ${t.body}`}>
-        {current ? (
-          <>
-            <span
-              className="mr-2 inline-block h-1.5 w-1.5 rounded-full align-middle"
-              style={{ backgroundColor: t.progressDot }}
-            />
-            {current.title}
-          </>
-        ) : (
-          "Nothing in progress"
-        )}
-      </p>
-      {onOpen && (
-        <button
-          type="button"
-          onClick={onOpen}
-          className={`mt-3 cursor-pointer rounded-lg border bg-transparent px-3 py-1.5 text-[0.6rem] uppercase tracking-[0.18em] transition-colors ${t.outlineBtn}`}
-        >
-          Open
-        </button>
-      )}
-    </>
+    <div className="mt-3 flex gap-1">
+      {milestones.map((m, i) => (
+        <span
+          key={m.id ?? i}
+          className="h-1.5 flex-1 rounded-full transition-colors duration-500"
+          style={{
+            backgroundColor:
+              m.status === "done"
+                ? t.accent
+                : m.status === "in_progress"
+                  ? t.accentSoft
+                  : t.track,
+          }}
+        />
+      ))}
+    </div>
   );
 }
