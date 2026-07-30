@@ -3,13 +3,14 @@ import globals from "globals";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
-export default [
+export default tseslint.config(
   { ignores: ["dist/**", "node_modules/**"] },
-  js.configs.recommended,
   {
-    files: ["**/*.{js,jsx}"],
+    files: ["**/*.{ts,tsx}"],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -32,13 +33,29 @@ export default [
       ...react.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       "react/react-in-jsx-scope": "off",
+      // TypeScript checks props now, so the runtime prop-types rule is redundant.
       "react/prop-types": "off",
-      "no-unused-vars": ["warn", { varsIgnorePattern: "^[A-Z_]" }],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { varsIgnorePattern: "^[A-Z_]", argsIgnorePattern: "^_" },
+      ],
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
       ],
     },
   },
-  prettier,
-];
+  {
+    // Build tooling that stays plain ESM JavaScript.
+    files: ["**/*.js"],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  prettier
+);

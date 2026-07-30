@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSteps, saveGoal, saveSteps } from "../api";
 import { fmt, toKey } from "../stepsUtil";
+import type { MetricId, StepsPayload } from "../types";
 
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -23,26 +24,38 @@ const MONTHS = [
 
 const sliderClass =
   "flex-1 h-1 appearance-none rounded bg-black/10 outline-none " +
-  "[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(45,212,191,0.18)] " +
-  "[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-teal";
+  "[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(129,140,248,0.18)] " +
+  "[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-accent";
 
 const numberClass =
   "[&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none";
 
-const startOfWeek = (d) => {
+const startOfWeek = (d: Date): Date => {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const day = (r.getDay() + 6) % 7; // Mon = 0
   r.setDate(r.getDate() - day);
   return r;
 };
 
-const addDays = (d, n) => {
+const addDays = (d: Date, n: number): Date => {
   const r = new Date(d);
   r.setDate(r.getDate() + n);
   return r;
 };
 
-export default function StepsTracker({ id }) {
+type DayStatus = "none" | "almost" | "done";
+
+/** The day the editor modal is open for. */
+interface EditingDay {
+  key: string;
+  label: string;
+}
+
+interface StepsTrackerProps {
+  id: MetricId;
+}
+
+export default function StepsTracker({ id }: StepsTrackerProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data } = useQuery({
@@ -52,27 +65,29 @@ export default function StepsTracker({ id }) {
   const serverGoal = typeof data?.goal === "number" ? data.goal : 10000;
   const entries = data?.entries ?? {};
 
-  const [goalDraft, setGoalDraft] = useState(null); // non-null only while dragging the slider
+  // non-null only while dragging the slider
+  const [goalDraft, setGoalDraft] = useState<number | null>(null);
   const goal = goalDraft ?? serverGoal;
   const [weekOffset, setWeekOffset] = useState(0);
-  const [editing, setEditing] = useState(null); // { key, label }
+  const [editing, setEditing] = useState<EditingDay | null>(null);
   const [draft, setDraft] = useState(0);
 
-  const setStepsCache = (updater) =>
-    queryClient.setQueryData(["steps", id], (prev) =>
+  const setStepsCache = (updater: (prev: StepsPayload) => StepsPayload) =>
+    queryClient.setQueryData<StepsPayload>(["steps", id], (prev) =>
       updater(prev ?? { goal: 10000, entries: {} })
     );
 
   const goalMut = useMutation({
-    mutationFn: (g) => saveGoal(id, g),
+    mutationFn: (g: number) => saveGoal(id, g),
     onError: () => queryClient.invalidateQueries({ queryKey: ["steps", id] }),
   });
   const stepsMut = useMutation({
-    mutationFn: ({ date, steps }) => saveSteps(id, date, steps),
+    mutationFn: ({ date, steps }: { date: string; steps: number }) =>
+      saveSteps(id, date, steps),
     onError: () => queryClient.invalidateQueries({ queryKey: ["steps", id] }),
   });
 
-  const commitGoal = (g) => {
+  const commitGoal = (g: number) => {
     const clamped = Math.max(1000, Math.min(20000, g));
     setGoalDraft(null);
     setStepsCache((prev) => ({ ...prev, goal: clamped }));
@@ -94,13 +109,13 @@ export default function StepsTracker({ id }) {
         : "Finished week";
   const finished = weekOffset < 0;
 
-  const dayStatus = (key) => {
+  const dayStatus = (key: string): DayStatus => {
     const steps = entries[key];
     if (steps == null || steps <= 0) return "none";
     return steps >= goal ? "done" : "almost";
   };
 
-  const openEditor = (d, key) => {
+  const openEditor = (d: Date, key: string) => {
     setEditing({
       key,
       label: `${WEEKDAYS[(d.getDay() + 6) % 7]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`,
@@ -109,6 +124,7 @@ export default function StepsTracker({ id }) {
   };
 
   const saveDraft = () => {
+    if (!editing) return;
     const steps = Math.max(0, Math.round(draft) || 0);
     const date = editing.key;
     setStepsCache((prev) => {
@@ -151,7 +167,7 @@ export default function StepsTracker({ id }) {
                   onClick={() => commitGoal(k * 1000)}
                   className={`cursor-pointer rounded-full border px-4 py-[7px] text-[0.8rem] tracking-[0.04em] transition-all ${
                     active
-                      ? "border-teal bg-teal font-semibold text-slate-900"
+                      ? "border-accent bg-accent font-semibold text-slate-900"
                       : "border-black/15 bg-transparent text-black/55"
                   }`}
                 >
@@ -172,8 +188,12 @@ export default function StepsTracker({ id }) {
               step={1}
               value={Math.round(goal / 1000)}
               onChange={(e) => setGoalDraft(Number(e.target.value) * 1000)}
-              onMouseUp={(e) => commitGoal(Number(e.target.value) * 1000)}
-              onTouchEnd={(e) => commitGoal(Number(e.target.value) * 1000)}
+              onMouseUp={(e) =>
+                commitGoal(Number(e.currentTarget.value) * 1000)
+              }
+              onTouchEnd={(e) =>
+                commitGoal(Number(e.currentTarget.value) * 1000)
+              }
               className={sliderClass}
             />
             <span className="text-[0.65rem] tracking-[0.1em] text-black/30">
@@ -186,7 +206,7 @@ export default function StepsTracker({ id }) {
         <section className="flex flex-col gap-[18px]">
           <div className="flex items-center justify-between">
             <button
-              className="h-[38px] w-[38px] cursor-pointer rounded-xl border border-teal-dim bg-transparent text-[1.2rem] text-teal-dim"
+              className="h-[38px] w-[38px] cursor-pointer rounded-xl border border-accent-dim bg-transparent text-[1.2rem] text-accent-dim"
               onClick={() => setWeekOffset((o) => o - 1)}
             >
               ‹
@@ -204,7 +224,7 @@ export default function StepsTracker({ id }) {
               </div>
             </div>
             <button
-              className="h-[38px] w-[38px] cursor-pointer rounded-xl border border-teal-dim bg-transparent text-[1.2rem] text-teal-dim"
+              className="h-[38px] w-[38px] cursor-pointer rounded-xl border border-accent-dim bg-transparent text-[1.2rem] text-accent-dim"
               onClick={() => setWeekOffset((o) => o + 1)}
             >
               ›
@@ -223,7 +243,7 @@ export default function StepsTracker({ id }) {
               const status = dayStatus(key);
               const markClass =
                 status === "done"
-                  ? "bg-teal text-slate-900"
+                  ? "bg-accent text-slate-900"
                   : status === "almost"
                     ? "bg-amber-500 text-slate-900"
                     : "bg-black/5 text-black/30";
@@ -263,8 +283,8 @@ export default function StepsTracker({ id }) {
         {/* ---- Legend ---- */}
         <section className="flex flex-wrap justify-center gap-6 text-[0.65rem] uppercase tracking-[0.1em] text-black/45">
           <span className="flex items-center gap-2">
-            <i className="inline-block h-2.5 w-2.5 rounded-full bg-teal" /> goal
-            reached
+            <i className="inline-block h-2.5 w-2.5 rounded-full bg-accent" />{" "}
+            goal reached
           </span>
           <span className="flex items-center gap-2">
             <i className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />{" "}
@@ -284,10 +304,13 @@ export default function StepsTracker({ id }) {
           onClick={() => setEditing(null)}
         >
           <div
-            className="flex w-80 max-w-[90vw] flex-col gap-[18px] rounded-2xl border border-teal-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(45,212,191,0.08)]"
+            className="flex w-80 max-w-[90vw] flex-col gap-[18px] rounded-2xl border border-accent-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(129,140,248,0.08)]"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Edit ${editing.label}`}
           >
-            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-teal">
+            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-accent">
               {editing.label}
             </div>
 
@@ -302,7 +325,7 @@ export default function StepsTracker({ id }) {
 
             <div className="text-center text-[0.8rem] tracking-[0.03em]">
               {draft >= goal ? (
-                <span className="text-teal">✓ Goal reached</span>
+                <span className="text-accent">✓ Goal reached</span>
               ) : (
                 <span className="text-amber-400">
                   ◔ {fmt(Math.max(0, goal - Math.round(draft || 0)))} steps to
@@ -342,7 +365,7 @@ export default function StepsTracker({ id }) {
                 Clear
               </button>
               <button
-                className="flex-[2] cursor-pointer rounded-[10px] border-none bg-teal-dim py-[11px] text-[0.8rem] font-semibold tracking-[0.04em] text-white transition-colors hover:bg-teal"
+                className="flex-[2] cursor-pointer rounded-[10px] border-none bg-accent-dim py-[11px] text-[0.8rem] font-semibold tracking-[0.04em] text-white transition-colors hover:bg-accent"
                 onClick={saveDraft}
               >
                 Save

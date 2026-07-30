@@ -6,3 +6,4 @@ backend/metrics.sqlite
 .DS_Store
 dist/
 frontend/dist/
+backend/dist/

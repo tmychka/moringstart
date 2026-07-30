@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getNotes, createNote, updateNote, deleteNote } from "../api";
 import RoadmapTimeline from "./RoadmapTimeline";
+import type { MetricId, Note, NoteUpdate } from "../types";
 
 const textareaClass =
   "w-full resize-y rounded-[10px] border border-gray-200 px-3.5 py-3 text-[0.95rem] leading-[1.5] text-gray-700 outline-none";
 const linkBtnClass =
   "cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 text-[0.8rem] text-gray-400";
 
-const fmtDate = (s) => {
+const fmtDate = (s: string): string => {
   if (!s) return "";
   const d = new Date(s.replace(" ", "T") + "Z");
   return d.toLocaleString(undefined, {
@@ -21,7 +22,18 @@ const fmtDate = (s) => {
   });
 };
 
-export default function Notebook({ id }) {
+/** The word whose link is currently being edited, across all notes. */
+interface ActiveWord {
+  noteId: number;
+  wordIndex: number;
+  draft: string;
+}
+
+interface NotebookProps {
+  id: MetricId;
+}
+
+export default function Notebook({ id }: NotebookProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: notes = [] } = useQuery({
@@ -29,24 +41,27 @@ export default function Notebook({ id }) {
     queryFn: () => getNotes(id),
   });
   const [newContent, setNewContent] = useState("");
-  const [editingId, setEditingId] = useState(null); // note being text-edited
+  // note being text-edited
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
-  const [linkModeId, setLinkModeId] = useState(null); // note with "Edit links" on
-  const [activeWord, setActiveWord] = useState(null); // { noteId, wordIndex, draft }
+  // note with "Edit links" on
+  const [linkModeId, setLinkModeId] = useState<number | null>(null);
+  const [activeWord, setActiveWord] = useState<ActiveWord | null>(null);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["notes", id] });
 
   const addMut = useMutation({
-    mutationFn: (content) => createNote(id, content),
+    mutationFn: (content: string) => createNote(id, content),
     onSuccess: invalidate,
   });
   const updateMut = useMutation({
-    mutationFn: ({ noteId, body }) => updateNote(id, noteId, body),
+    mutationFn: ({ noteId, body }: { noteId: number; body: NoteUpdate }) =>
+      updateNote(id, noteId, body),
     onSuccess: invalidate,
   });
   const removeMut = useMutation({
-    mutationFn: (noteId) => deleteNote(id, noteId),
+    mutationFn: (noteId: number) => deleteNote(id, noteId),
     onSuccess: invalidate,
   });
 
@@ -56,20 +71,20 @@ export default function Notebook({ id }) {
     addMut.mutate(content, { onSuccess: () => setNewContent("") });
   };
 
-  const remove = (noteId) => {
+  const remove = (noteId: number) => {
     removeMut.mutate(noteId);
     if (linkModeId === noteId) setLinkModeId(null);
     if (activeWord?.noteId === noteId) setActiveWord(null);
   };
 
-  const startEdit = (note) => {
+  const startEdit = (note: Note) => {
     setEditingId(note.id);
     setEditDraft(note.content);
     setLinkModeId(null);
     setActiveWord(null);
   };
 
-  const saveEdit = (note) => {
+  const saveEdit = (note: Note) => {
     const content = editDraft.trim();
     if (!content) return;
     updateMut.mutate(
@@ -78,7 +93,8 @@ export default function Notebook({ id }) {
     );
   };
 
-  const saveLink = (note) => {
+  const saveLink = (note: Note) => {
+    if (!activeWord) return;
     const { wordIndex, draft } = activeWord;
     const links = { ...note.links };
     const url = draft.trim();
@@ -216,7 +232,7 @@ export default function Notebook({ id }) {
                     })
                   }
                   onDraftChange={(draft) =>
-                    setActiveWord((a) => ({ ...a, draft }))
+                    setActiveWord((a) => (a ? { ...a, draft } : a))
                   }
                   onSaveLink={() => saveLink(note)}
                   onCancelLink={() => setActiveWord(null)}
@@ -230,6 +246,31 @@ export default function Notebook({ id }) {
   );
 }
 
+/** A run of note text: whitespace has no `wordIndex`, every word gets the next one. */
+interface Token {
+  text: string;
+  wordIndex: number | null;
+}
+
+const tokenize = (content: string): Token[] => {
+  let counter = -1;
+  return content.split(/(\s+)/).map((text) => {
+    const isWord = !(/^\s+$/.test(text) || text === "");
+    if (isWord) counter += 1;
+    return { text, wordIndex: isWord ? counter : null };
+  });
+};
+
+interface NoteBodyProps {
+  note: Note;
+  linkMode: boolean;
+  activeWord: ActiveWord | null;
+  onWordClick: (wordIndex: number) => void;
+  onDraftChange: (draft: string) => void;
+  onSaveLink: () => void;
+  onCancelLink: () => void;
+}
+
 function NoteBody({
   note,
   linkMode,
@@ -238,27 +279,18 @@ function NoteBody({
   onDraftChange,
   onSaveLink,
   onCancelLink,
-}) {
-  const tokens = note.content.split(/(\s+)/);
-  const wordIndices = [];
-  let counter = -1;
-  for (const token of tokens) {
-    const isWord = !(/^\s+$/.test(token) || token === "");
-    counter += isWord ? 1 : 0;
-    wordIndices.push(isWord ? counter : null);
-  }
+}: NoteBodyProps) {
+  const tokens = tokenize(note.content);
 
   return (
     <p className="m-0 whitespace-pre-wrap text-[0.96rem] leading-[1.7]">
-      {tokens.map((token, i) => {
-        if (/^\s+$/.test(token) || token === "")
-          return <span key={i}>{token}</span>;
-        const wi = wordIndices[i];
-        const url = note.links[wi];
+      {tokens.map(({ text, wordIndex }, i) => {
+        if (wordIndex === null) return <span key={i}>{text}</span>;
+        const url = note.links[wordIndex];
         const isActive =
-          activeWord &&
+          activeWord !== null &&
           activeWord.noteId === note.id &&
-          activeWord.wordIndex === wi;
+          activeWord.wordIndex === wordIndex;
 
         const editor = isActive && (
           <span className="absolute left-0 top-[1.6em] z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white p-1 shadow-[0_6px_20px_rgba(0,0,0,0.12)]">
@@ -292,7 +324,7 @@ function NoteBody({
           return (
             <span key={i} className="relative inline">
               <span
-                onClick={() => onWordClick(wi)}
+                onClick={() => onWordClick(wordIndex)}
                 className={
                   url
                     ? "cursor-pointer text-blue-600 underline"
@@ -300,7 +332,7 @@ function NoteBody({
                 }
                 title="Click to set a link"
               >
-                {token}
+                {text}
               </span>
               {editor}
             </span>
@@ -316,11 +348,11 @@ function NoteBody({
               rel="noopener noreferrer"
               className="text-blue-600 underline"
             >
-              {token}
+              {text}
             </a>
           );
         }
-        return <span key={i}>{token}</span>;
+        return <span key={i}>{text}</span>;
       })}
     </p>
   );

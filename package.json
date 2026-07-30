@@ -2,7 +2,9 @@
   "name": "morning-start",
   "version": "1.0.0",
   "scripts": {
-    "start": "(cd backend && node server.js) & (cd frontend && npm run dev)",
+    "start": "(cd backend && npm run dev) & (cd frontend && npm run dev)",
+    "build": "(cd backend && npm run build) && (cd frontend && npm run build)",
+    "typecheck": "(cd backend && npm run typecheck) && (cd frontend && npm run typecheck)",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "(cd backend && npm run lint) && (cd frontend && npm run lint)",

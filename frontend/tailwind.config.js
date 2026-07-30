@@ -1,11 +1,13 @@
 export default {
-  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         navy: "#0a0f1e",
-        teal: "#2dd4bf",
-        "teal-dim": "#134e4a",
+        // The single source of truth for the app's accent. Swapping the scheme
+        // means changing these two values plus --carousel-dot in index.css.
+        accent: "#818cf8",
+        "accent-dim": "#4338ca",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

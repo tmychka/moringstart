@@ -1,4 +1,13 @@
-import { Children, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Children,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { isTypingTarget } from "../useBackGesture";
 
 const TRANSITION_MS = 500;
 const EASING = "cubic-bezier(.22,.61,.36,1)";
@@ -6,21 +15,25 @@ const LOCK_MS = 550;
 const WHEEL_RESET_MS = 180;
 const WHEEL_THRESHOLD = 60;
 const TOUCH_THRESHOLD = 50;
-const DOT_COLOR = "var(--carousel-dot, #134e4a)";
+const DOT_COLOR = "var(--carousel-dot, #4338ca)";
 
-const isTypingTarget = (target) =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable ||
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT");
+type Timer = ReturnType<typeof setTimeout>;
 
-export default function Carousel({ children, initial = 0 }) {
+interface CarouselProps {
+  children: ReactNode;
+  initial?: number;
+}
+
+export default function Carousel({ children, initial = 0 }: CarouselProps) {
   const slides = Children.toArray(children);
   const count = slides.length;
 
+  // Only element children carry a key; anything else falls back to its position.
+  const keyFor = (slide: (typeof slides)[number], i: number) =>
+    isValidElement(slide) ? (slide.key ?? i) : i;
+
   const clamp = useCallback(
-    (i) => Math.min(Math.max(i, 0), Math.max(count - 1, 0)),
+    (i: number) => Math.min(Math.max(i, 0), Math.max(count - 1, 0)),
     [count]
   );
 
@@ -28,15 +41,15 @@ export default function Carousel({ children, initial = 0 }) {
 
   const indexRef = useRef(index);
   const lockedRef = useRef(false);
-  const lockTimerRef = useRef(null);
+  const lockTimerRef = useRef<Timer | undefined>(undefined);
   const wheelAccRef = useRef(0);
-  const wheelTimerRef = useRef(null);
-  const touchStartRef = useRef(null);
+  const wheelTimerRef = useRef<Timer | undefined>(undefined);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Single entry point for every gesture: clamps, then blocks follow-up
   // gestures for LOCK_MS so one inertial trackpad flick moves exactly one slide.
   const goTo = useCallback(
-    (next) => {
+    (next: number) => {
       const target = clamp(next);
       if (target === indexRef.current) return;
       indexRef.current = target;
@@ -61,7 +74,7 @@ export default function Carousel({ children, initial = 0 }) {
 
   // Trackpad: horizontal two/three-finger swipe.
   useEffect(() => {
-    const onWheel = (e) => {
+    const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
 
@@ -90,7 +103,7 @@ export default function Carousel({ children, initial = 0 }) {
 
   // Keyboard arrows.
   useEffect(() => {
-    const onKeyDown = (e) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (isTypingTarget(e.target)) return;
       if (lockedRef.current) return;
@@ -103,12 +116,12 @@ export default function Carousel({ children, initial = 0 }) {
 
   // Touch swipe.
   useEffect(() => {
-    const onTouchStart = (e) => {
+    const onTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     };
 
-    const onTouchEnd = (e) => {
+    const onTouchEnd = (e: TouchEvent) => {
       const start = touchStartRef.current;
       touchStartRef.current = null;
       if (!start || lockedRef.current) return;
@@ -144,7 +157,7 @@ export default function Carousel({ children, initial = 0 }) {
       >
         {slides.map((slide, i) => (
           <div
-            key={slide.key ?? i}
+            key={keyFor(slide, i)}
             className="relative w-screen h-full shrink-0 grow-0 basis-[100vw] overflow-hidden"
             aria-hidden={i !== index}
             inert={i === index ? undefined : ""}
@@ -157,7 +170,7 @@ export default function Carousel({ children, initial = 0 }) {
       <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
         {slides.map((slide, i) => (
           <button
-            key={slide.key ?? i}
+            key={keyFor(slide, i)}
             type="button"
             onClick={() => goTo(i)}
             aria-label={`Go to slide ${i + 1} of ${count}`}

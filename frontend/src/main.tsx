@@ -13,8 +13,8 @@ import "./index.css";
 
 // Surface every failed query/mutation as a toast, so components don't each need
 // their own error handling.
-const notifyError = (error) =>
-  toast.error(error?.message || "Something went wrong");
+const notifyError = (error: Error) =>
+  toast.error(error.message || "Something went wrong");
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: notifyError }),
@@ -24,7 +24,10 @@ const queryClient = new QueryClient({
   },
 });
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error('index.html is missing its <div id="root">');
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

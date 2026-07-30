@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import StepsQuickPanel from "./StepsQuickPanel";
+import type { Metric } from "../types";
 
 // Angles: 0°=right, 90°=up(CSS top), 180°=left, 270°=bottom
 // Arcs are defined as angular ranges so any number of metrics can be laid out.
-const LEFT_RANGE = [140, 210]; // top-left → bottom-left
-const RIGHT_RANGE = [40, -8]; // top-right → bottom-right (−8 ≡ 352)
+type AngleRange = [start: number, end: number];
+
+const LEFT_RANGE: AngleRange = [140, 210]; // top-left → bottom-left
+const RIGHT_RANGE: AngleRange = [40, -8]; // top-right → bottom-right (−8 ≡ 352)
 const R = 290;
-const toRad = (deg) => (deg * Math.PI) / 180;
+const toRad = (deg: number) => (deg * Math.PI) / 180;
 
 // Evenly place `count` angles across [start,end]; a single item sits at the midpoint.
-function distribute([start, end], count) {
+function distribute([start, end]: AngleRange, count: number): number[] {
   if (count <= 0) return [];
   if (count === 1) return [(start + end) / 2];
   return Array.from(
@@ -20,9 +23,9 @@ function distribute([start, end], count) {
 }
 
 // left gets the extra when odd (matches the original 4/3 split at n=7)
-const leftCountFor = (n) => Math.ceil(n / 2);
+const leftCountFor = (n: number) => Math.ceil(n / 2);
 
-function computeAngles(n) {
+function computeAngles(n: number): number[] {
   const leftCount = leftCountFor(n);
   return [
     ...distribute(LEFT_RANGE, leftCount),
@@ -44,7 +47,11 @@ function useWindowSize() {
   return size;
 }
 
-export default function MetricsOverlay({ metrics }) {
+interface MetricsOverlayProps {
+  metrics: Metric[];
+}
+
+export default function MetricsOverlay({ metrics }: MetricsOverlayProps) {
   const navigate = useNavigate();
   const { w, h } = useWindowSize();
   const leftCount = leftCountFor(metrics.length);
@@ -114,17 +121,35 @@ export default function MetricsOverlay({ metrics }) {
   );
 }
 
-function MetricLabel({ metric, cx, cy, xOff, yOff, isLeft, onNavigate }) {
+interface MetricLabelProps {
+  metric: Metric;
+  cx: number;
+  cy: number;
+  xOff: number;
+  yOff: number;
+  isLeft: boolean;
+  onNavigate: () => void;
+}
+
+function MetricLabel({
+  metric,
+  cx,
+  cy,
+  xOff,
+  yOff,
+  isLeft,
+  onNavigate,
+}: MetricLabelProps) {
   const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
   const isSteps = metric.type === "steps";
-  const wrapRef = useRef(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   // Close the quick panel when clicking anywhere outside of it.
   useEffect(() => {
     if (!open) return;
-    const handle = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target))
+    const handle = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node | null))
         setOpen(false);
     };
     document.addEventListener("mousedown", handle);

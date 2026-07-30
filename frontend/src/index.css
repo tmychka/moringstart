@@ -11,27 +11,60 @@ body {
   overscroll-behavior-x: none;
 }
 
-:root {
-  --carousel-dot: #134e4a;
+/* One source of truth for anything painted outside a themed React tree — the
+   page behind the app, native scrollbars, and the carousel dots. `data-theme`
+   is set on <html> by src/theme.ts, so switching the theme anywhere switches
+   these too. */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --carousel-dot: #4338ca;
+  --app-bg: #ffffff;
+  --app-fg: #16171a;
 }
 
 /* The dots overlay every slide, so the dark-theme colour has to stay legible on
-   both the dark dashboard and the white Home page — hence a mid-tone teal
+   both the dark dashboard and the white Home page — hence a mid-tone indigo
    rather than something tuned to the dark background alone. */
 :root[data-theme="dark"] {
-  --carousel-dot: #0d9488;
+  color-scheme: dark;
+  --carousel-dot: #6366f1;
+  --app-bg: #0a0f1e;
+  --app-fg: #ffffff;
 }
 
 body {
-  background-color: #0a0f1e;
-  color: white;
+  background-color: var(--app-bg);
+  color: var(--app-fg);
   margin: 0;
   overflow: hidden;
   font-family: "Inter", system-ui, sans-serif;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 .metric-label {
   transition:
     opacity 0.45s ease,
     transform 0.45s ease;
+}
+
+/* The goal-reached gesture on the dashboard: a ring expanding from the pointer,
+   launched a few times in a row so it reads as one wave crossing the card.
+   `both` keeps a delayed ring collapsed instead of flashing at full size while
+   it waits its turn. */
+@keyframes goal-wave {
+  from {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.goal-wave {
+  animation: goal-wave 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }

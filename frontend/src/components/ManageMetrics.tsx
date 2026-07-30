@@ -2,36 +2,42 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { getMetrics, createMetric, updateMetric, deleteMetric } from "../api";
+import type { Metric } from "../types";
 
-export default function ManageMetrics({ onClose }) {
+interface ManageMetricsProps {
+  onClose: () => void;
+}
+
+export default function ManageMetrics({ onClose }: ManageMetricsProps) {
   const queryClient = useQueryClient();
   const { data: metrics = [] } = useQuery({
     queryKey: ["metrics"],
     queryFn: getMetrics,
   });
   const [newName, setNewName] = useState("");
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["metrics"] });
 
   const createMut = useMutation({
-    mutationFn: (name) => createMetric(name),
+    mutationFn: (name: string) => createMetric(name),
     onSuccess: () => {
       invalidate();
       toast.success("Metric added");
     },
   });
   const updateMut = useMutation({
-    mutationFn: ({ id, name }) => updateMetric(id, name),
+    mutationFn: ({ id, name }: { id: number; name: string }) =>
+      updateMetric(id, name),
     onSuccess: () => {
       invalidate();
       toast.success("Metric updated");
     },
   });
   const deleteMut = useMutation({
-    mutationFn: (id) => deleteMetric(id),
+    mutationFn: (id: number) => deleteMetric(id),
     onSuccess: () => {
       invalidate();
       toast.success("Metric deleted");
@@ -44,15 +50,15 @@ export default function ManageMetrics({ onClose }) {
     createMut.mutate(name, { onSuccess: () => setNewName("") });
   };
 
-  const handleSaveEdit = (id) => {
+  const handleSaveEdit = (id: number) => {
     const name = editName.trim();
     if (!name) return;
     updateMut.mutate({ id, name }, { onSuccess: () => setEditId(null) });
   };
 
-  const handleDelete = (id) => deleteMut.mutate(id);
+  const handleDelete = (id: number) => deleteMut.mutate(id);
 
-  const startEdit = (metric) => {
+  const startEdit = (metric: Metric) => {
     setEditId(metric.id);
     setEditName(metric.name);
   };
@@ -62,10 +68,10 @@ export default function ManageMetrics({ onClose }) {
       className="absolute inset-0 z-50 flex items-center justify-center bg-black/65 [backdrop-filter:blur(6px)]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex max-h-[70vh] w-80 flex-col gap-5 rounded-2xl border border-teal-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(45,212,191,0.08)]">
+      <div className="flex max-h-[70vh] w-80 flex-col gap-5 rounded-2xl border border-accent-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(129,140,248,0.08)]">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-teal">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-accent">
             Metrics
           </span>
           <button
@@ -109,7 +115,7 @@ export default function ManageMetrics({ onClose }) {
           />
           <button
             onClick={handleAdd}
-            className="cursor-pointer rounded-lg border-none bg-teal-dim px-3.5 py-[7px] text-[0.8rem] tracking-[0.04em] text-white transition-colors hover:bg-teal"
+            className="cursor-pointer rounded-lg border-none bg-accent-dim px-3.5 py-[7px] text-[0.8rem] tracking-[0.04em] text-white transition-colors hover:bg-accent"
           >
             Add
           </button>
@@ -117,6 +123,17 @@ export default function ManageMetrics({ onClose }) {
       </div>
     </div>
   );
+}
+
+interface MetricRowProps {
+  metric: Metric;
+  isEditing: boolean;
+  editName: string;
+  onEditNameChange: (name: string) => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
 }
 
 function MetricRow({
@@ -128,7 +145,7 @@ function MetricRow({
   onSaveEdit,
   onCancelEdit,
   onDelete,
-}) {
+}: MetricRowProps) {
   return (
     <li className="group flex items-center gap-2 py-1">
       {isEditing ? (
@@ -145,7 +162,7 @@ function MetricRow({
           />
           <button
             onClick={onSaveEdit}
-            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-teal"
+            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-accent"
           >
             Save
           </button>
@@ -163,7 +180,7 @@ function MetricRow({
           </span>
           <button
             onClick={onStartEdit}
-            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-teal opacity-0 transition-opacity group-hover:opacity-100"
+            className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[0.72rem] tracking-[0.04em] text-accent opacity-0 transition-opacity group-hover:opacity-100"
           >
             Edit
           </button>

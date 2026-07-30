@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import {
@@ -7,8 +7,22 @@ import {
   updateMilestone,
   deleteMilestone,
 } from "../api";
+import type {
+  MetricId,
+  Milestone,
+  MilestoneUpdate,
+  RoadmapStatus,
+} from "../types";
 
-const STATUS_META = {
+interface StatusMeta {
+  label: string;
+  ringClass: string;
+  markerClass: string;
+  activeClass: string;
+  inactiveClass: string;
+}
+
+const STATUS_META: Record<RoadmapStatus, StatusMeta> = {
   upcoming: {
     label: "Upcoming",
     ringClass: "border-slate-300",
@@ -31,33 +45,47 @@ const STATUS_META = {
     inactiveClass: "border-gray-200 bg-transparent text-green-600",
   },
 };
-const STATUS_ORDER = ["upcoming", "in_progress", "done"];
+const STATUS_ORDER: RoadmapStatus[] = ["upcoming", "in_progress", "done"];
 
-const clamp = (n, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
+const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 // Evenly distribute n nodes across the line, with insets so end labels don't clip.
-const slotLeft = (index, n) => (n <= 1 ? 50 : 6 + (index / (n - 1)) * 88);
+const slotLeft = (index: number, n: number) =>
+  n <= 1 ? 50 : 6 + (index / (n - 1)) * 88;
 
-export default function RoadmapTimeline({ id }) {
+interface DragState {
+  id: number;
+  startX: number;
+  moved: boolean;
+}
+
+interface RoadmapTimelineProps {
+  id: MetricId;
+}
+
+export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const { data: milestones = [], isSuccess: loaded } = useQuery({
     queryKey: ["roadmap", id],
     queryFn: () => getRoadmap(id),
   });
 
-  const [order, setOrder] = useState([]); // milestone ids, in sequence
-  const [openId, setOpenId] = useState(null); // milestone whose menu is open
+  // milestone ids, in sequence
+  const [order, setOrder] = useState<number[]>([]);
+  // milestone whose menu is open
+  const [openId, setOpenId] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
-  const [draggingId, setDraggingId] = useState(null);
-  const [dragPct, setDragPct] = useState(null); // live pointer % for dragged node
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  // live pointer % for dragged node
+  const [dragPct, setDragPct] = useState<number | null>(null);
 
-  const trackRef = useRef(null);
-  const dragState = useRef(null); // { id, startX, moved }
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<DragState | null>(null);
 
   // Keep the local sequence in sync with server data without an effect: when the SET of
   // milestone ids changes, preserve the current order for surviving ids and append new
   // ones (by position). Position-only changes (e.g. a reorder we just saved) don't
   // re-sync, so the user's drag order isn't clobbered.
-  const [syncedIds, setSyncedIds] = useState(null);
+  const [syncedIds, setSyncedIds] = useState<string | null>(null);
   const idsKey = milestones.map((m) => m.id).join(",");
   if (idsKey !== syncedIds) {
     setSyncedIds(idsKey);
@@ -72,8 +100,10 @@ export default function RoadmapTimeline({ id }) {
     });
   }
 
-  const byId = (mid) => milestones.find((m) => m.id === mid);
-  const ordered = order.map(byId).filter(Boolean);
+  const byId = (mid: number) => milestones.find((m) => m.id === mid);
+  const ordered = order
+    .map(byId)
+    .filter((m): m is Milestone => m !== undefined);
   const n = ordered.length;
   const total = milestones.length;
   const doneCount = milestones.filter((m) => m.status === "done").length;
@@ -93,19 +123,22 @@ export default function RoadmapTimeline({ id }) {
   // ----- helpers -----
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["roadmap", id] });
-  const setCache = (updater) =>
-    queryClient.setQueryData(["roadmap", id], (prev = []) => updater(prev));
-  const patchLocal = (mId, patch) =>
+  const setCache = (updater: (prev: Milestone[]) => Milestone[]) =>
+    queryClient.setQueryData<Milestone[]>(["roadmap", id], (prev) =>
+      updater(prev ?? [])
+    );
+  const patchLocal = (mId: number, patch: MilestoneUpdate) =>
     setCache((prev) =>
       prev.map((m) => (m.id === mId ? { ...m, ...patch } : m))
     );
 
   const updateMut = useMutation({
-    mutationFn: ({ mId, body }) => updateMilestone(id, mId, body),
+    mutationFn: ({ mId, body }: { mId: number; body: MilestoneUpdate }) =>
+      updateMilestone(id, mId, body),
     onSettled: invalidate,
   });
   const removeMut = useMutation({
-    mutationFn: (mid) => deleteMilestone(id, mid),
+    mutationFn: (mid: number) => deleteMilestone(id, mid),
     onSuccess: (_res, mid) =>
       setCache((prev) => prev.filter((m) => m.id !== mid)),
     onSettled: invalidate,
@@ -126,18 +159,19 @@ export default function RoadmapTimeline({ id }) {
 
   // Optimistically patch, then persist; the onSettled refetch reconciles server-side
   // normalization (e.g. only one in-progress node per metric).
-  const persist = (mId, body) => {
+  const persist = (mId: number, body: MilestoneUpdate) => {
     patchLocal(mId, body);
     updateMut.mutate({ mId, body });
   };
 
-  const pctFromClientX = (clientX) => {
-    const rect = trackRef.current.getBoundingClientRect();
+  const pctFromClientX = (clientX: number): number => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return 0;
     return clamp(((clientX - rect.left) / rect.width) * 100);
   };
 
   // Renumber positions to match a sequence order; persist only the ones that moved.
-  const persistOrder = (seq) => {
+  const persistOrder = (seq: number[]) => {
     const changed = seq.filter((mid, i) => byId(mid)?.position !== i);
     if (changed.length === 0) return;
     setCache((prev) =>
@@ -150,23 +184,26 @@ export default function RoadmapTimeline({ id }) {
       changed.map((mid) =>
         updateMilestone(id, mid, { position: seq.indexOf(mid) })
       )
-    ).catch((err) => {
-      toast.error(err.message);
+    ).catch((err: unknown) => {
+      toast.error(
+        err instanceof Error ? err.message : "Could not save the new order"
+      );
       invalidate();
     });
   };
 
   const add = () => addMut.mutate();
 
-  const setStatus = (m, status) => persist(m.id, { status });
+  const setStatus = (m: Milestone, status: RoadmapStatus) =>
+    persist(m.id, { status });
 
-  const remove = (mid) => {
+  const remove = (mid: number) => {
     removeMut.mutate(mid);
     setOrder((prev) => prev.filter((x) => x !== mid));
     if (openId === mid) setOpenId(null);
   };
 
-  const openMenu = (mid) => {
+  const openMenu = (mid: number) => {
     setOpenId((cur) => {
       const next = cur === mid ? null : mid;
       if (next) {
@@ -177,13 +214,13 @@ export default function RoadmapTimeline({ id }) {
     });
   };
 
-  const commitTitle = (m) => {
+  const commitTitle = (m: Milestone) => {
     const t = titleDraft.trim();
     if (t && t !== m.title) persist(m.id, { title: t });
     else setTitleDraft(m.title);
   };
 
-  const moveInOrder = (mid, dir) => {
+  const moveInOrder = (mid: number, dir: number) => {
     const ci = order.indexOf(mid);
     const ni = clamp(ci + dir, 0, order.length - 1);
     if (ni === ci) return;
@@ -195,13 +232,19 @@ export default function RoadmapTimeline({ id }) {
   };
 
   // ----- drag to reorder (pointer events) -----
-  const onNodePointerDown = (e, mid) => {
+  const onNodePointerDown = (
+    e: PointerEvent<HTMLButtonElement>,
+    mid: number
+  ) => {
     if (e.button !== undefined && e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragState.current = { id: mid, startX: e.clientX, moved: false };
   };
 
-  const onNodePointerMove = (e, mid) => {
+  const onNodePointerMove = (
+    e: PointerEvent<HTMLButtonElement>,
+    mid: number
+  ) => {
     const st = dragState.current;
     if (!st || st.id !== mid) return;
     if (!st.moved && Math.abs(e.clientX - st.startX) < 4) return;
@@ -224,7 +267,7 @@ export default function RoadmapTimeline({ id }) {
     });
   };
 
-  const onNodePointerUp = (e, mid) => {
+  const onNodePointerUp = (e: PointerEvent<HTMLButtonElement>, mid: number) => {
     const st = dragState.current;
     dragState.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
@@ -241,7 +284,7 @@ export default function RoadmapTimeline({ id }) {
   };
 
   // ----- keyboard -----
-  const onNodeKeyDown = (e, mid) => {
+  const onNodeKeyDown = (e: KeyboardEvent<HTMLButtonElement>, mid: number) => {
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
       moveInOrder(mid, e.key === "ArrowLeft" ? -1 : 1);

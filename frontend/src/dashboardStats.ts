@@ -1,27 +1,29 @@
 import { toKey } from "./stepsUtil";
+import type { StepEntries } from "./types";
 
-const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const startOfDay = (d: Date): Date =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-export const addDays = (d, n) => {
+export const addDays = (d: Date, n: number): Date => {
   const r = new Date(d);
   r.setDate(r.getDate() + n);
   return r;
 };
 
-const fromKey = (key) => {
+const fromKey = (key: string): Date => {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
 
 // SQLite writes `datetime('now')`, i.e. UTC with a space separator and no zone
 // marker — which browsers would otherwise read as local time.
-export const parseSqlDate = (value) =>
+export const parseSqlDate = (value: string): Date =>
   new Date(`${String(value).replace(" ", "T")}Z`);
 
-export function timeAgo(value, now = new Date()) {
+export function timeAgo(value: string, now: Date = new Date()): string {
   const then = parseSqlDate(value);
   if (Number.isNaN(then.getTime())) return "";
-  const minutes = Math.round((now - then) / 60000);
+  const minutes = Math.round((now.getTime() - then.getTime()) / 60000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.round(minutes / 60);
@@ -32,14 +34,18 @@ export function timeAgo(value, now = new Date()) {
 }
 
 // `count` days ending on `today`, oldest first.
-export function lastNDays(count, today = new Date()) {
+export function lastNDays(count: number, today: Date = new Date()): Date[] {
   const end = startOfDay(today);
   return Array.from({ length: count }, (_, i) => addDays(end, i - count + 1));
 }
 
 // Consecutive goal-hitting days ending today. A blank today does not break the
 // streak — the day isn't over yet, so counting resumes from yesterday.
-export function currentStreak(entries, goal, today = new Date()) {
+export function currentStreak(
+  entries: StepEntries,
+  goal: number,
+  today: Date = new Date()
+): number {
   // A non-positive goal makes every day a "hit", which would walk backwards
   // forever. It only happens before the goal has loaded, so report no streak.
   if (!(goal > 0)) return 0;
@@ -55,7 +61,7 @@ export function currentStreak(entries, goal, today = new Date()) {
   return streak;
 }
 
-export function bestStreak(entries, goal) {
+export function bestStreak(entries: StepEntries, goal: number): number {
   if (!(goal > 0)) return 0;
 
   const hits = Object.keys(entries)
@@ -64,7 +70,7 @@ export function bestStreak(entries, goal) {
 
   let best = 0;
   let run = 0;
-  let prev = null;
+  let prev: Date | null = null;
   for (const key of hits) {
     // Comparing via keys rather than millisecond deltas keeps this correct
     // across daylight-saving boundaries, where a "day" is 23 or 25 hours.
@@ -75,10 +81,32 @@ export function bestStreak(entries, goal) {
   return best;
 }
 
+/** One day of the rolling window. */
+export interface DaySummary {
+  date: Date;
+  key: string;
+  steps: number;
+}
+
+export interface StepsSummary {
+  window: DaySummary[];
+  total: number;
+  best: DaySummary | null;
+  hitDays: number;
+  loggedDays: number;
+  average: number;
+  hitRate: number;
+}
+
 // Rolling-window totals. Averages and rates intentionally ignore days with no
 // entry: an unlogged day is missing data, not a zero-step day.
-export function summarize(entries, goal, days, today = new Date()) {
-  const window = lastNDays(days, today).map((date) => {
+export function summarize(
+  entries: StepEntries,
+  goal: number,
+  days: number,
+  today: Date = new Date()
+): StepsSummary {
+  const window: DaySummary[] = lastNDays(days, today).map((date) => {
     const key = toKey(date);
     return { date, key, steps: entries[key] ?? 0 };
   });
@@ -88,7 +116,7 @@ export function summarize(entries, goal, days, today = new Date()) {
   // Without a loaded goal nothing counts as a hit, rather than everything.
   const hitDays =
     goal > 0 ? logged.filter((day) => day.steps >= goal).length : 0;
-  const best = logged.reduce(
+  const best = logged.reduce<DaySummary | null>(
     (max, day) => (day.steps > (max?.steps ?? 0) ? day : max),
     null
   );

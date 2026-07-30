@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSteps, saveSteps } from "../api";
 import { fmt, toKey } from "../stepsUtil";
+import type { MetricId, StepsPayload } from "../types";
 
-export default function StepsQuickPanel({ id, isLeft }) {
+interface StepsQuickPanelProps {
+  id: MetricId;
+  isLeft: boolean;
+}
+
+export default function StepsQuickPanel({ id, isLeft }: StepsQuickPanelProps) {
   const queryClient = useQueryClient();
   const todayKey = toKey(new Date());
   const { data } = useQuery({
@@ -29,9 +35,9 @@ export default function StepsQuickPanel({ id, isLeft }) {
   const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
 
   const saveMut = useMutation({
-    mutationFn: (steps) => saveSteps(id, todayKey, steps),
+    mutationFn: (steps: number) => saveSteps(id, todayKey, steps),
     onSuccess: (res) => {
-      queryClient.setQueryData(["steps", id], (prev) => {
+      queryClient.setQueryData<StepsPayload>(["steps", id], (prev) => {
         const base = prev ?? { goal, entries: {} };
         const entries = { ...base.entries };
         if (res.steps > 0) entries[todayKey] = res.steps;
@@ -45,7 +51,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
 
   const save = () => saveMut.mutate(Math.max(0, Math.round(value)));
 
-  const stop = (e) => e.stopPropagation();
+  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
   return (
     <div
@@ -60,7 +66,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
       </div>
 
       <div className="text-[1.05rem] font-normal leading-none tracking-[0.02em] text-slate-900">
-        <span className={reached ? "text-teal" : "text-amber-500"}>
+        <span className={reached ? "text-accent" : "text-amber-500"}>
           {fmt(value)}
         </span>
         <span className="text-black/35"> / {fmt(goal)}</span>
@@ -69,7 +75,7 @@ export default function StepsQuickPanel({ id, isLeft }) {
       <div className="h-1 overflow-hidden bg-black/[0.08]">
         <div
           className={`h-full rounded transition-[width,background] duration-200 ease-out ${
-            reached ? "bg-teal" : "bg-amber-500"
+            reached ? "bg-accent" : "bg-amber-500"
           }`}
           style={{ width: `${pct}%` }}
         />

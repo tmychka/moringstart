@@ -5,8 +5,13 @@ import Carousel from "./components/Carousel";
 import Dashboard from "./components/Dashboard";
 import Home from "./pages/Home";
 import MetricPage from "./pages/MetricPage";
+import { useThemeName } from "./theme";
 
 export default function App() {
+  // Toasts render outside every page, so they follow the app-wide theme rather
+  // than being pinned to one scheme.
+  const theme = useThemeName();
+
   return (
     <>
       <Routes>
@@ -21,7 +26,7 @@ export default function App() {
         />
         <Route path="/metric/:id" element={<MetricPage />} />
       </Routes>
-      <ToastContainer position="bottom-right" autoClose={3500} theme="dark" />
+      <ToastContainer position="bottom-right" autoClose={3500} theme={theme} />
     </>
   );
 }

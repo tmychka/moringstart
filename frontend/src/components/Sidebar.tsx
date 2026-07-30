@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import type { Metric, Theme, ThemeName } from "../types";
 
 const COLLAPSED_STORAGE_KEY = "dashboard-sidebar-collapsed";
 
@@ -57,9 +64,24 @@ const ICONS = {
       <path d="M9.6 4.4v15.2" />
     </>
   ),
-};
+} satisfies Record<string, ReactNode>;
 
-function Icon({ name, className = "h-[18px] w-[18px]" }) {
+export type IconName = keyof typeof ICONS;
+
+/** A shortcut rendered under the metric list. */
+export interface QuickLink {
+  icon: IconName;
+  label: string;
+  to: string;
+}
+
+function Icon({
+  name,
+  className = "h-[18px] w-[18px]",
+}: {
+  name: IconName;
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -76,7 +98,7 @@ function Icon({ name, className = "h-[18px] w-[18px]" }) {
   );
 }
 
-const readCollapsed = () => {
+const readCollapsed = (): boolean => {
   try {
     return localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
   } catch {
@@ -84,9 +106,9 @@ const readCollapsed = () => {
   }
 };
 
-function useMediaQuery(query) {
+function useMediaQuery(query: string): boolean {
   const subscribe = useCallback(
-    (onChange) => {
+    (onChange: () => void) => {
       const list = window.matchMedia?.(query);
       if (!list) return () => {};
       list.addEventListener("change", onChange);
@@ -103,6 +125,17 @@ function useMediaQuery(query) {
   return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }
 
+interface SidebarProps {
+  t: Theme;
+  theme: ThemeName;
+  onTheme: (theme: ThemeName) => void;
+  metrics: Metric[];
+  onOpenMetric: (id: number) => void;
+  onManageMetrics: () => void;
+  onNavigate: (to: string) => void;
+  quickLinks?: QuickLink[];
+}
+
 export default function Sidebar({
   t,
   theme,
@@ -112,7 +145,7 @@ export default function Sidebar({
   onManageMetrics,
   onNavigate,
   quickLinks = [],
-}) {
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [metricsOpen, setMetricsOpen] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -252,6 +285,9 @@ export default function Sidebar({
             >
               <li>← → or swipe switches dashboard and body map.</li>
               <li className="mt-1.5">Pick a metric to open its own page.</li>
+              <li className="mt-1.5">
+                ← → or swipe again goes back from a metric page.
+              </li>
               <li className="mt-1.5">+ next to Metrics adds or removes one.</li>
             </ul>
           )}
@@ -276,7 +312,7 @@ export default function Sidebar({
   );
 }
 
-function BrandMark({ t }) {
+function BrandMark({ t }: { t: Theme }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -293,6 +329,17 @@ function BrandMark({ t }) {
   );
 }
 
+interface NavItemProps {
+  t: Theme;
+  icon: IconName;
+  label: string;
+  collapsed: boolean;
+  active?: boolean;
+  onClick?: () => void;
+  trailing?: ReactNode;
+  expandedGroup?: boolean;
+}
+
 function NavItem({
   t,
   icon,
@@ -302,7 +349,7 @@ function NavItem({
   onClick,
   trailing,
   expandedGroup,
-}) {
+}: NavItemProps) {
   const interactive = Boolean(onClick);
 
   return (
@@ -343,7 +390,14 @@ function NavItem({
   );
 }
 
-function Badge({ t, icon, label, onClick }) {
+interface ButtonProps {
+  t: Theme;
+  icon: IconName;
+  label: string;
+  onClick?: () => void;
+}
+
+function Badge({ t, icon, label, onClick }: ButtonProps) {
   return (
     <button
       type="button"
@@ -357,7 +411,7 @@ function Badge({ t, icon, label, onClick }) {
   );
 }
 
-function IconButton({ t, icon, label, onClick }) {
+function IconButton({ t, icon, label, onClick }: ButtonProps) {
   return (
     <button
       type="button"
