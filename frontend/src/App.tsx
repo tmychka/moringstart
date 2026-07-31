@@ -5,6 +5,7 @@ import Carousel from "./components/Carousel";
 import Dashboard from "./components/Dashboard";
 import Home from "./pages/Home";
 import MetricPage from "./pages/MetricPage";
+import Todos from "./pages/Todos";
 import { useThemeName } from "./theme";
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
             </Carousel>
           }
         />
+        <Route path="/todos" element={<Todos />} />
         <Route path="/metric/:id" element={<MetricPage />} />
       </Routes>
       <ToastContainer position="bottom-right" autoClose={3500} theme={theme} />
