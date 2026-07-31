@@ -30,6 +30,13 @@ const ICONS = {
     </>
   ),
   activity: <path d="M3.4 12h3.9l2.5-6.4 4.2 12.8 2.5-6.4h4.1" />,
+  checklist: (
+    <>
+      <path d="M3.8 7.4 5.7 9.3l3.2-3.4" />
+      <path d="M3.8 16.4l1.9 1.9 3.2-3.4" />
+      <path d="M12.4 7.2h7.8M12.4 16.2h7.8" />
+    </>
+  ),
   notes: (
     <>
       <rect x="4.6" y="3.5" width="14.8" height="17" rx="2.6" />
@@ -133,6 +140,8 @@ interface SidebarProps {
   onOpenMetric: (id: number) => void;
   onManageMetrics: () => void;
   onNavigate: (to: string) => void;
+  /** Route the sidebar is being rendered on, so it can mark its own entry. */
+  activePath?: string;
   quickLinks?: QuickLink[];
 }
 
@@ -144,6 +153,7 @@ export default function Sidebar({
   onOpenMetric,
   onManageMetrics,
   onNavigate,
+  activePath = "/",
   quickLinks = [],
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -217,7 +227,17 @@ export default function Sidebar({
             icon="grid"
             label="Dashboard"
             collapsed={collapsed}
-            active
+            active={activePath === "/"}
+            onClick={() => onNavigate("/")}
+          />
+
+          <NavItem
+            t={t}
+            icon="checklist"
+            label="Todos"
+            collapsed={collapsed}
+            active={activePath === "/todos"}
+            onClick={() => onNavigate("/todos")}
           />
 
           <NavItem
@@ -273,6 +293,7 @@ export default function Sidebar({
               icon={link.icon}
               label={link.label}
               collapsed={collapsed}
+              active={activePath === link.to}
               onClick={() => onNavigate(link.to)}
             />
           ))}
