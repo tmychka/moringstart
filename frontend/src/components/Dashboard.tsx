@@ -14,8 +14,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { getMetrics, getNotes, getRoadmap, getSteps, saveSteps } from "../api";
-import ManageMetrics from "./ManageMetrics";
-import Sidebar, { type QuickLink } from "./Sidebar";
+import AppSidebar from "./AppSidebar";
+import NextUp from "./NextUp";
 import { fmt, toKey } from "../stepsUtil";
 import { summarize, timeAgo, type DaySummary } from "../dashboardStats";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
@@ -85,9 +85,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const now = useNow();
   const words = useEnglishWords();
-  const { t, theme, setTheme } = useTheme();
+  const { t } = useTheme();
   const queryClient = useQueryClient();
-  const [showManage, setShowManage] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [waves, setWaves] = useState<Wave[]>([]);
@@ -223,52 +222,11 @@ export default function Dashboard() {
         ? "Goal reached"
         : `${fmt(goal - todaySteps)} steps to go`;
 
-  // Shortcuts to the pages the dashboard already summarises; each one is only
-  // offered when the metric behind it exists.
-  const quickLinks: QuickLink[] = [
-    ...(primary
-      ? [
-          {
-            icon: "activity" as const,
-            label: "Steps",
-            to: `/metric/${primary.id}`,
-          },
-        ]
-      : []),
-    ...(notebook
-      ? [
-          {
-            icon: "notes" as const,
-            label: "Notes",
-            to: `/metric/${notebook.id}`,
-          },
-        ]
-      : []),
-    ...(metrics.some((m) => String(m.id) === ENGLISH_METRIC_ID)
-      ? [
-          {
-            icon: "book" as const,
-            label: "Vocabulary",
-            to: `/metric/${ENGLISH_METRIC_ID}`,
-          },
-        ]
-      : []),
-  ];
-
   return (
     <div
       className={`relative flex h-full w-full overflow-hidden transition-colors duration-300 ${t.page}`}
     >
-      <Sidebar
-        t={t}
-        theme={theme}
-        onTheme={setTheme}
-        metrics={metrics}
-        onOpenMetric={(id) => navigate(`/metric/${id}`)}
-        onManageMetrics={() => setShowManage(true)}
-        onNavigate={navigate}
-        quickLinks={quickLinks}
-      />
+      <AppSidebar />
 
       <div className="h-full flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-3 px-6 pb-16 pt-8 sm:px-8">
@@ -393,6 +351,7 @@ export default function Dashboard() {
               </div>
             </section>
 
+            <NextUp t={t} now={now} className="col-span-12" />
             <Roadmap
               t={t}
               className="col-span-12 md:col-span-4"
@@ -433,8 +392,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {showManage && <ManageMetrics onClose={() => setShowManage(false)} />}
     </div>
   );
 }
