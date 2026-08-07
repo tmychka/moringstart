@@ -12,7 +12,6 @@ import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import { readWords, writeWords } from "../englishWords";
 import type { Theme } from "../types";
 
-// How long a word stays highlighted after the form points at it.
 const FLASH_MS = 1800;
 const VIEW_STORAGE_KEY = "english-view";
 
