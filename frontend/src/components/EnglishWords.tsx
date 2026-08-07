@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import AppSidebar from "./AppSidebar";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import { readWords, writeWords } from "../englishWords";
 import type { Theme } from "../types";
@@ -119,8 +119,7 @@ const speakTerm = (text: string, onDone: () => void) => {
 };
 
 export default function EnglishWords() {
-  const navigate = useNavigate();
-  const { t, theme, setTheme } = useTheme();
+  const { t } = useTheme();
 
   const [words, setWords] = useState<Word[]>(loadWords);
   const [term, setTerm] = useState("");
@@ -357,236 +356,233 @@ export default function EnglishWords() {
   };
 
   return (
+    // The sidebar owns the way back and the theme switch, so the shell is the
+    // same one Dashboard and Todos use: rail, then the page's own scroll column.
     <div
-      className={`relative h-screen w-screen overflow-y-auto transition-colors duration-300 ${t.page}`}
+      className={`relative flex h-screen w-screen overflow-hidden transition-colors duration-300 ${t.page}`}
     >
-      <div className="mx-auto w-full max-w-[1440px] px-5 pb-24 pt-6 sm:px-8">
-        {/* Everything that acts on the whole page lives in one header row; below
+      <AppSidebar variant="minimal" />
+
+      <div className="h-full flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1440px] px-5 pb-24 pt-6 sm:px-8">
+          {/* Everything that acts on the whole page lives in one header row; below
             the sm breakpoint the search drops to a line of its own. */}
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
-          <button
-            onClick={() => navigate("/")}
-            className={`-ml-2 flex cursor-pointer items-center gap-1.5 rounded-xl border-none bg-transparent px-2 py-1.5 text-[0.72rem] transition-colors ${t.body} ${t.rowHover}`}
-          >
-            <Icon name="back" className="h-4 w-4" />
-            Back
-          </button>
-
-          {words.length > 0 && (
-            <label className="relative order-last w-full sm:order-none sm:w-auto sm:min-w-[220px] sm:max-w-[420px] sm:flex-1">
-              <span
-                className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${t.faint}`}
-              >
-                <Icon name="search" className="h-4 w-4" />
-              </span>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search word or translation…"
-                aria-label="Search vocabulary"
-                className={`w-full rounded-2xl border py-2 pl-11 pr-10 text-[0.88rem] outline-none transition-all ${t.input}`}
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  className={`absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 cursor-pointer place-items-center rounded-full border-none bg-transparent transition-colors ${t.iconBtn}`}
-                >
-                  <Icon name="close" className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </label>
-          )}
-
-          <div className="ml-auto flex items-center gap-2.5">
+          <header className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
             {words.length > 0 && (
-              <>
-                {/* The count belongs with the control that changes it. */}
-                <p className={`m-0 hidden text-[0.75rem] sm:block ${t.muted}`}>
-                  <span className={numeralClass}>
-                    {searching
-                      ? `${visible.length} of ${words.length}`
-                      : words.length}
-                  </span>{" "}
-                  words
-                </p>
-                <Segmented
-                  t={t}
-                  options={VIEWS}
-                  value={view}
-                  onChange={(next) => {
-                    closePopover();
-                    setView(next);
-                  }}
+              <label className="relative order-last w-full sm:order-none sm:w-auto sm:min-w-[220px] sm:max-w-[420px] sm:flex-1">
+                <span
+                  className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${t.faint}`}
+                >
+                  <Icon name="search" className="h-4 w-4" />
+                </span>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search word or translation…"
+                  aria-label="Search vocabulary"
+                  className={`w-full rounded-2xl border py-2 pl-11 pr-10 text-[0.88rem] outline-none transition-all ${t.input}`}
                 />
-              </>
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear search"
+                    className={`absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 cursor-pointer place-items-center rounded-full border-none bg-transparent transition-colors ${t.iconBtn}`}
+                  >
+                    <Icon name="close" className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </label>
             )}
-            <Chip
-              t={t}
-              active={practice}
-              onClick={togglePractice}
-              title="Keep translations hidden until you reveal them one by one"
-            >
-              <Icon
-                name={practice ? "eyeOff" : "eye"}
-                className="h-[15px] w-[15px]"
-              />
-              Practice
-            </Chip>
-            <IconButton
-              t={t}
-              icon={theme === "dark" ? "sun" : "moon"}
-              label={theme === "dark" ? "Light background" : "Dark background"}
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            />
-          </div>
-        </header>
 
-        <form onSubmit={add} className={`${cardClass(t)} mt-5 p-4 sm:p-5`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="min-w-0 flex-1">
-              <span className={labelClass(t)}>Word / text</span>
-              <input
-                ref={termInput}
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
-                placeholder="to look forward to"
-                className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-[0.95rem] outline-none transition-all ${t.input}`}
-              />
-            </label>
-            <label className="min-w-0 flex-1">
-              <span className={labelClass(t)}>Translation</span>
-              <input
-                value={translation}
-                onChange={(e) => setTranslation(e.target.value)}
-                placeholder="з нетерпінням чекати, очікувати"
-                className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-[0.95rem] outline-none transition-all ${t.input}`}
-              />
-            </label>
-            <button
-              type="submit"
-              className={`shrink-0 cursor-pointer rounded-2xl border-none px-6 py-[11px] text-[0.66rem] uppercase tracking-[0.18em] transition-all hover:-translate-y-px active:translate-y-0 ${t.toggleOn}`}
-            >
-              {duplicate ? "Show" : "Add"}
-            </button>
-          </div>
+            <div className="ml-auto flex items-center gap-2.5">
+              {words.length > 0 && (
+                <>
+                  {/* The count belongs with the control that changes it. */}
+                  <p
+                    className={`m-0 hidden text-[0.75rem] sm:block ${t.muted}`}
+                  >
+                    <span className={numeralClass}>
+                      {searching
+                        ? `${visible.length} of ${words.length}`
+                        : words.length}
+                    </span>{" "}
+                    words
+                  </p>
+                  <Segmented
+                    t={t}
+                    options={VIEWS}
+                    value={view}
+                    onChange={(next) => {
+                      closePopover();
+                      setView(next);
+                    }}
+                  />
+                </>
+              )}
+              <Chip
+                t={t}
+                active={practice}
+                onClick={togglePractice}
+                title="Keep translations hidden until you reveal them one by one"
+              >
+                <Icon
+                  name={practice ? "eyeOff" : "eye"}
+                  className="h-[15px] w-[15px]"
+                />
+                Practice
+              </Chip>
+            </div>
+          </header>
 
-          {duplicate && (
-            <p className="m-0 mt-3 text-[0.72rem]" style={{ color: t.accent }}>
-              «{duplicate.term}» вже у списку — покажу де
+          <form onSubmit={add} className={`${cardClass(t)} mt-5 p-4 sm:p-5`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="min-w-0 flex-1">
+                <span className={labelClass(t)}>Word / text</span>
+                <input
+                  ref={termInput}
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  placeholder="to look forward to"
+                  className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-[0.95rem] outline-none transition-all ${t.input}`}
+                />
+              </label>
+              <label className="min-w-0 flex-1">
+                <span className={labelClass(t)}>Translation</span>
+                <input
+                  value={translation}
+                  onChange={(e) => setTranslation(e.target.value)}
+                  placeholder="з нетерпінням чекати, очікувати"
+                  className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-[0.95rem] outline-none transition-all ${t.input}`}
+                />
+              </label>
+              <button
+                type="submit"
+                className={`shrink-0 cursor-pointer rounded-2xl border-none px-6 py-[11px] text-[0.66rem] uppercase tracking-[0.18em] transition-all hover:-translate-y-px active:translate-y-0 ${t.toggleOn}`}
+              >
+                {duplicate ? "Show" : "Add"}
+              </button>
+            </div>
+
+            {duplicate && (
+              <p
+                className="m-0 mt-3 text-[0.72rem]"
+                style={{ color: t.accent }}
+              >
+                «{duplicate.term}» вже у списку — покажу де
+              </p>
+            )}
+          </form>
+
+          {words.length === 0 ? (
+            <p
+              className={`mt-6 rounded-3xl border border-dashed px-5 py-10 text-center text-[0.85rem] ${t.rule} ${t.muted}`}
+            >
+              Ще нічого немає — додай перше слово ✎
             </p>
+          ) : visible.length === 0 ? (
+            <div
+              className={`mt-3 rounded-3xl border border-dashed px-5 py-10 text-center ${t.rule}`}
+            >
+              <p className={`m-0 text-[0.85rem] ${t.muted}`}>
+                Нічого не знайдено
+              </p>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className={`mt-3 cursor-pointer rounded-xl border bg-transparent px-4 py-2 text-[0.66rem] uppercase tracking-[0.18em] transition-colors ${t.outlineBtn}`}
+              >
+                Reset
+              </button>
+            </div>
+          ) : view === "grid" ? (
+            // Column flow rather than row flow: words read top-to-bottom down each
+            // column, the way a dictionary page does.
+            <ul
+              ref={setGridEl}
+              className="mt-6 grid list-none gap-x-6 p-0"
+              style={{
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${Math.ceil(visible.length / columns)}, auto)`,
+                gridAutoFlow: "column",
+              }}
+            >
+              {visible.map((word) => (
+                <WordCell
+                  key={word.id}
+                  t={t}
+                  word={word}
+                  query={query}
+                  now={now}
+                  open={openId === word.id}
+                  pinned={pinnedId === word.id}
+                  isEditing={editId === word.id}
+                  editTerm={editTerm}
+                  editTr={editTr}
+                  onEditTermChange={setEditTerm}
+                  onEditTrChange={setEditTr}
+                  onStartEdit={() => startEdit(word)}
+                  onSaveEdit={saveEdit}
+                  onCancelEdit={cancelEdit}
+                  onRemove={() => remove(word.id)}
+                  onSpeak={() => speak(word)}
+                  isSpeaking={speakingId === word.id}
+                  hidden={practice && !revealed.has(word.id)}
+                  practice={practice}
+                  onToggleReveal={() => toggleReveal(word.id)}
+                  flash={flashId === word.id}
+                  cellRef={(el) => {
+                    if (el) wordRefs.current.set(word.id, el);
+                    else wordRefs.current.delete(word.id);
+                  }}
+                  onHover={(on) =>
+                    setHoverId((current) =>
+                      on ? word.id : current === word.id ? null : current
+                    )
+                  }
+                  onTogglePin={() =>
+                    setPinnedId((current) =>
+                      current === word.id ? null : word.id
+                    )
+                  }
+                  onKeyDown={(e) => onWordKeyDown(e, word)}
+                />
+              ))}
+            </ul>
+          ) : (
+            <ul className="mt-6 flex list-none flex-col gap-2 p-0">
+              {visible.map((word) => (
+                <WordRow
+                  key={word.id}
+                  t={t}
+                  word={word}
+                  query={query}
+                  now={now}
+                  rowRef={(el) => {
+                    if (el) wordRefs.current.set(word.id, el);
+                    else wordRefs.current.delete(word.id);
+                  }}
+                  isEditing={editId === word.id}
+                  editTerm={editTerm}
+                  editTr={editTr}
+                  onEditTermChange={setEditTerm}
+                  onEditTrChange={setEditTr}
+                  onStartEdit={() => startEdit(word)}
+                  onSaveEdit={saveEdit}
+                  onCancelEdit={cancelEdit}
+                  onRemove={() => remove(word.id)}
+                  onSpeak={() => speak(word)}
+                  isSpeaking={speakingId === word.id}
+                  hidden={practice && !revealed.has(word.id)}
+                  practice={practice}
+                  onToggleReveal={() => toggleReveal(word.id)}
+                  flash={flashId === word.id}
+                  onKeyDown={(e) => onRowKeyDown(e, word)}
+                />
+              ))}
+            </ul>
           )}
-        </form>
-
-        {words.length === 0 ? (
-          <p
-            className={`mt-6 rounded-3xl border border-dashed px-5 py-10 text-center text-[0.85rem] ${t.rule} ${t.muted}`}
-          >
-            Ще нічого немає — додай перше слово ✎
-          </p>
-        ) : visible.length === 0 ? (
-          <div
-            className={`mt-3 rounded-3xl border border-dashed px-5 py-10 text-center ${t.rule}`}
-          >
-            <p className={`m-0 text-[0.85rem] ${t.muted}`}>
-              Нічого не знайдено
-            </p>
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              className={`mt-3 cursor-pointer rounded-xl border bg-transparent px-4 py-2 text-[0.66rem] uppercase tracking-[0.18em] transition-colors ${t.outlineBtn}`}
-            >
-              Reset
-            </button>
-          </div>
-        ) : view === "grid" ? (
-          // Column flow rather than row flow: words read top-to-bottom down each
-          // column, the way a dictionary page does.
-          <ul
-            ref={setGridEl}
-            className="mt-6 grid list-none gap-x-6 p-0"
-            style={{
-              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${Math.ceil(visible.length / columns)}, auto)`,
-              gridAutoFlow: "column",
-            }}
-          >
-            {visible.map((word) => (
-              <WordCell
-                key={word.id}
-                t={t}
-                word={word}
-                query={query}
-                now={now}
-                open={openId === word.id}
-                pinned={pinnedId === word.id}
-                isEditing={editId === word.id}
-                editTerm={editTerm}
-                editTr={editTr}
-                onEditTermChange={setEditTerm}
-                onEditTrChange={setEditTr}
-                onStartEdit={() => startEdit(word)}
-                onSaveEdit={saveEdit}
-                onCancelEdit={cancelEdit}
-                onRemove={() => remove(word.id)}
-                onSpeak={() => speak(word)}
-                isSpeaking={speakingId === word.id}
-                hidden={practice && !revealed.has(word.id)}
-                practice={practice}
-                onToggleReveal={() => toggleReveal(word.id)}
-                flash={flashId === word.id}
-                cellRef={(el) => {
-                  if (el) wordRefs.current.set(word.id, el);
-                  else wordRefs.current.delete(word.id);
-                }}
-                onHover={(on) =>
-                  setHoverId((current) =>
-                    on ? word.id : current === word.id ? null : current
-                  )
-                }
-                onTogglePin={() =>
-                  setPinnedId((current) =>
-                    current === word.id ? null : word.id
-                  )
-                }
-                onKeyDown={(e) => onWordKeyDown(e, word)}
-              />
-            ))}
-          </ul>
-        ) : (
-          <ul className="mt-6 flex list-none flex-col gap-2 p-0">
-            {visible.map((word) => (
-              <WordRow
-                key={word.id}
-                t={t}
-                word={word}
-                query={query}
-                now={now}
-                rowRef={(el) => {
-                  if (el) wordRefs.current.set(word.id, el);
-                  else wordRefs.current.delete(word.id);
-                }}
-                isEditing={editId === word.id}
-                editTerm={editTerm}
-                editTr={editTr}
-                onEditTermChange={setEditTerm}
-                onEditTrChange={setEditTr}
-                onStartEdit={() => startEdit(word)}
-                onSaveEdit={saveEdit}
-                onCancelEdit={cancelEdit}
-                onRemove={() => remove(word.id)}
-                onSpeak={() => speak(word)}
-                isSpeaking={speakingId === word.id}
-                hidden={practice && !revealed.has(word.id)}
-                practice={practice}
-                onToggleReveal={() => toggleReveal(word.id)}
-                flash={flashId === word.id}
-                onKeyDown={(e) => onRowKeyDown(e, word)}
-              />
-            ))}
-          </ul>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -1129,30 +1125,6 @@ function Chip({
   );
 }
 
-function IconButton({
-  t,
-  icon,
-  label,
-  onClick,
-}: {
-  t: Theme;
-  icon: IconName;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={`grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full border-none p-0 transition-colors ${t.sidebarCard} ${t.toggleOff}`}
-    >
-      <Icon name={icon} className="h-[17px] w-[17px]" />
-    </button>
-  );
-}
-
 function RowButton({
   t,
   icon,
@@ -1189,7 +1161,6 @@ function RowButton({
 // 24×24 stroke icons drawn inline, matching the sidebar's set — no icon
 // dependency, and they inherit the row's colour.
 const ICONS = {
-  back: <path d="M14.6 5.4 8 12l6.6 6.6" />,
   sound: (
     <>
       <path d="M4.6 9.3h3.1L12 5.6v12.8l-4.3-3.7H4.6z" />
@@ -1229,13 +1200,6 @@ const ICONS = {
       <path d="m15.5 15.5 4 4" />
     </>
   ),
-  sun: (
-    <>
-      <circle cx="12" cy="12" r="3.9" />
-      <path d="M12 2.9V5M12 19v2.1M4.5 4.5 6 6M18 18l1.5 1.5M2.9 12H5M19 12h2.1M4.5 19.5 6 18M18 6l1.5-1.5" />
-    </>
-  ),
-  moon: <path d="M20.4 14.6A8.4 8.4 0 0 1 9.4 3.6a8.4 8.4 0 1 0 11 11Z" />,
 } satisfies Record<string, ReactNode>;
 
 type IconName = keyof typeof ICONS;

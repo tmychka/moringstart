@@ -47,6 +47,11 @@ const quickLinksFor = (metrics: Metric[]): QuickLink[] => {
   ];
 };
 
+interface AppSidebarProps {
+  /** `minimal` drops everything but the brand row, Dashboard and the theme switch. */
+  variant?: "full" | "minimal";
+}
+
 /**
  * The sidebar with everything it needs already wired: the metric list, the
  * shortcuts, the theme switch and the manage-metrics dialog. Every page that
@@ -55,7 +60,7 @@ const quickLinksFor = (metrics: Metric[]): QuickLink[] => {
  * Must sit inside a positioned element — both the floating panel below `md` and
  * the dialog are absolutely positioned against it.
  */
-export default function AppSidebar() {
+export default function AppSidebar({ variant = "full" }: AppSidebarProps = {}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { t, theme, setTheme } = useTheme();
@@ -80,8 +85,12 @@ export default function AppSidebar() {
         onManageMetrics={() => setShowManage(true)}
         onNavigate={navigate}
         quickLinks={quickLinksFor(metrics)}
+        variant={variant}
       />
-      {showManage && <ManageMetrics onClose={() => setShowManage(false)} />}
+      {/* Only the full sidebar has the + that opens this. */}
+      {variant === "full" && showManage && (
+        <ManageMetrics onClose={() => setShowManage(false)} />
+      )}
     </>
   );
 }

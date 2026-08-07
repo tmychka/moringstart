@@ -143,6 +143,11 @@ interface SidebarProps {
   /** Route the sidebar is being rendered on, so it can mark its own entry. */
   activePath?: string;
   quickLinks?: QuickLink[];
+  /**
+   * `minimal` keeps only the brand row, Dashboard and the theme switch, for
+   * pages that want a way back and nothing competing with their own content.
+   */
+  variant?: "full" | "minimal";
 }
 
 export default function Sidebar({
@@ -155,10 +160,13 @@ export default function Sidebar({
   onNavigate,
   activePath = "/",
   quickLinks = [],
+  variant = "full",
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [metricsOpen, setMetricsOpen] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  const full = variant === "full";
 
   // Below md the panel would eat most of the viewport, so it floats over the
   // content instead of squeezing it and a backdrop closes it again.
@@ -231,35 +239,41 @@ export default function Sidebar({
             onClick={() => onNavigate("/")}
           />
 
-          <NavItem
-            t={t}
-            icon="checklist"
-            label="Todos"
-            collapsed={collapsed}
-            active={activePath === "/todos"}
-            onClick={() => onNavigate("/todos")}
-          />
+          {full && (
+            <NavItem
+              t={t}
+              icon="checklist"
+              label="Todos"
+              collapsed={collapsed}
+              active={activePath === "/todos"}
+              onClick={() => onNavigate("/todos")}
+            />
+          )}
 
-          <NavItem
-            t={t}
-            icon="layers"
-            label="Metrics"
-            collapsed={collapsed}
-            expandedGroup={expanded && metricsOpen}
-            onClick={() =>
-              collapsed ? setCollapsed(false) : setMetricsOpen((open) => !open)
-            }
-            trailing={
-              <Badge
-                t={t}
-                icon="plus"
-                label="Add metric"
-                onClick={onManageMetrics}
-              />
-            }
-          />
+          {full && (
+            <NavItem
+              t={t}
+              icon="layers"
+              label="Metrics"
+              collapsed={collapsed}
+              expandedGroup={expanded && metricsOpen}
+              onClick={() =>
+                collapsed
+                  ? setCollapsed(false)
+                  : setMetricsOpen((open) => !open)
+              }
+              trailing={
+                <Badge
+                  t={t}
+                  icon="plus"
+                  label="Add metric"
+                  onClick={onManageMetrics}
+                />
+              }
+            />
+          )}
 
-          {expanded && metricsOpen && (
+          {full && expanded && metricsOpen && (
             // Capped so a long metric list scrolls on its own instead of
             // pushing the quick links out of the sidebar.
             <ul className="m-0 mb-1 max-h-[168px] list-none overflow-y-auto p-0 pl-[26px]">
@@ -286,21 +300,22 @@ export default function Sidebar({
             </ul>
           )}
 
-          {quickLinks.map((link) => (
-            <NavItem
-              key={link.label}
-              t={t}
-              icon={link.icon}
-              label={link.label}
-              collapsed={collapsed}
-              active={activePath === link.to}
-              onClick={() => onNavigate(link.to)}
-            />
-          ))}
+          {full &&
+            quickLinks.map((link) => (
+              <NavItem
+                key={link.label}
+                t={t}
+                icon={link.icon}
+                label={link.label}
+                collapsed={collapsed}
+                active={activePath === link.to}
+                onClick={() => onNavigate(link.to)}
+              />
+            ))}
         </nav>
 
         <div className={`border-t px-3 py-3 ${t.rule}`}>
-          {expanded && helpOpen && (
+          {full && expanded && helpOpen && (
             <ul
               className={`m-0 mb-2 list-none rounded-xl p-3 text-[0.72rem] leading-relaxed ${t.sidebarCard} ${t.body}`}
             >
@@ -312,14 +327,16 @@ export default function Sidebar({
               <li className="mt-1.5">+ next to Metrics adds or removes one.</li>
             </ul>
           )}
-          <NavItem
-            t={t}
-            icon="help"
-            label="Help & information"
-            collapsed={collapsed}
-            active={expanded && helpOpen}
-            onClick={openHelp}
-          />
+          {full && (
+            <NavItem
+              t={t}
+              icon="help"
+              label="Help & information"
+              collapsed={collapsed}
+              active={expanded && helpOpen}
+              onClick={openHelp}
+            />
+          )}
           <NavItem
             t={t}
             icon={theme === "dark" ? "sun" : "moon"}
