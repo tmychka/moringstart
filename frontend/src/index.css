@@ -11,26 +11,18 @@ body {
   overscroll-behavior-x: none;
 }
 
-/* One source of truth for anything painted outside a themed React tree — the
-   page behind the app, native scrollbars, and the carousel dots. `data-theme`
-   is set on <html> by src/theme.ts, so switching the theme anywhere switches
-   these too. */
-:root,
-:root[data-theme="light"] {
+/* Anything painted outside a themed React tree — the backdrop behind the app,
+   native scrollbars, the carousel dots — reads these. src/theme.ts overwrites
+   them all on <html> from the active palette at import time, so what is here
+   only covers the first paint before the module runs; it matches Canvas light,
+   the default for anyone who has not picked. */
+:root {
   color-scheme: light;
-  --carousel-dot: #4338ca;
+  --carousel-dot: #7e8fa4;
   --app-bg: #ffffff;
-  --app-fg: #16171a;
-}
-
-/* The dots overlay every slide, so the dark-theme colour has to stay legible on
-   both the dark dashboard and the white Home page — hence a mid-tone indigo
-   rather than something tuned to the dark background alone. */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --carousel-dot: #6366f1;
-  --app-bg: #0a0f1e;
-  --app-fg: #ffffff;
+  --app-fg: #1b1d21;
+  --backdrop: linear-gradient(157deg, #eef1f6 0%, #ffffff 52%, #f0f3f8 100%);
+  --backdrop-size: auto;
 }
 
 body {
@@ -42,6 +34,23 @@ body {
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
+}
+
+/* The background treatment. One fixed layer for the whole app rather than a
+   background on each page: it has to stay put while pages swap and the carousel
+   slides across it, and it has to be a real painted layer so the frosted cards
+   above it have something to blur. `z-index: -1` puts it behind #root while
+   staying in front of the body's own background colour — which is why no page
+   paints a background of its own. The Flat treatment sets `none` here and gets
+   the bare `--app-bg`. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--backdrop);
+  background-size: var(--backdrop-size, auto);
+  pointer-events: none;
 }
 
 .metric-label {

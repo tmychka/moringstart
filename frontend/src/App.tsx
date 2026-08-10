@@ -6,12 +6,13 @@ import Dashboard from "./components/Dashboard";
 import Home from "./pages/Home";
 import MetricPage from "./pages/MetricPage";
 import Todos from "./pages/Todos";
-import { useThemeName } from "./theme";
+import { useTheme } from "./theme";
 
 export default function App() {
   // Toasts render outside every page, so they follow the app-wide theme rather
-  // than being pinned to one scheme.
-  const theme = useThemeName();
+  // than being pinned to one scheme. They only know light from dark, so they
+  // take the palette's base rather than its name.
+  const { t } = useTheme();
 
   return (
     <>
@@ -27,8 +28,15 @@ export default function App() {
         />
         <Route path="/todos" element={<Todos />} />
         <Route path="/metric/:id" element={<MetricPage />} />
+        {/* Same page, narrowed to one Developer subject, then to one of its pages. */}
+        <Route path="/metric/:id/:topic" element={<MetricPage />} />
+        <Route path="/metric/:id/:topic/:pageId" element={<MetricPage />} />
       </Routes>
-      <ToastContainer position="bottom-right" autoClose={3500} theme={theme} />
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3500}
+        theme={t.scheme}
+      />
     </>
   );
 }
