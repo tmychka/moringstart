@@ -7,11 +7,13 @@ import {
   updateMilestone,
   deleteMilestone,
 } from "../api";
+import { useTheme } from "../theme";
 import type {
   MetricId,
   Milestone,
   MilestoneUpdate,
   RoadmapStatus,
+  Theme,
 } from "../types";
 
 interface StatusMeta {
@@ -22,29 +24,32 @@ interface StatusMeta {
   inactiveClass: string;
 }
 
-const STATUS_META: Record<RoadmapStatus, StatusMeta> = {
+// Blue and green carry the meaning, so they stay fixed across themes — and stay
+// saturated where the palettes are muted, which is what marks them as status
+// rather than decoration. Only the neutrals come from the palette.
+const statusMeta = (t: Theme): Record<RoadmapStatus, StatusMeta> => ({
   upcoming: {
     label: "Upcoming",
-    ringClass: "border-slate-300",
-    markerClass: "bg-white",
-    activeClass: "border-gray-400 bg-gray-400 text-white",
-    inactiveClass: "border-gray-200 bg-transparent text-gray-400",
+    ringClass: "border-slate-400",
+    markerClass: t.surface,
+    activeClass: "border-slate-400 bg-slate-400 text-white",
+    inactiveClass: `bg-transparent ${t.rule} ${t.muted}`,
   },
   in_progress: {
     label: "In progress",
     ringClass: "border-blue-600",
     markerClass: "bg-blue-600",
     activeClass: "border-blue-600 bg-blue-600 text-white",
-    inactiveClass: "border-gray-200 bg-transparent text-blue-600",
+    inactiveClass: `bg-transparent text-blue-500 ${t.rule}`,
   },
   done: {
     label: "Done",
     ringClass: "border-green-600",
     markerClass: "bg-green-600",
     activeClass: "border-green-600 bg-green-600 text-white",
-    inactiveClass: "border-gray-200 bg-transparent text-green-600",
+    inactiveClass: `bg-transparent text-green-500 ${t.rule}`,
   },
-};
+});
 const STATUS_ORDER: RoadmapStatus[] = ["upcoming", "in_progress", "done"];
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
@@ -63,6 +68,8 @@ interface RoadmapTimelineProps {
 }
 
 export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
+  const { t } = useTheme();
+  const STATUS_META = statusMeta(t);
   const queryClient = useQueryClient();
   const { data: milestones = [], isSuccess: loaded } = useQuery({
     queryKey: ["roadmap", id],
@@ -301,22 +308,20 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
 
   return (
     <section
-      className="mb-8 rounded-2xl border border-gray-200 bg-white px-[22px] pb-2 pt-5 font-system shadow-[0_1px_3px_rgba(16,24,40,0.06),0_1px_2px_rgba(16,24,40,0.04)]"
+      className={`mb-8 rounded-3xl border px-[22px] pb-2 pt-5 font-system ${t.card}`}
       aria-label="Roadmap timeline"
     >
       <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="m-0 text-[1.1rem] font-semibold text-gray-900">
-            Roadmap
-          </h2>
-          <p className="mb-0 mt-[3px] text-[0.82rem] text-gray-400">
+          <h2 className="m-0 text-[1.1rem] font-semibold">Roadmap</h2>
+          <p className={`mb-0 mt-[3px] text-[0.82rem] ${t.muted}`}>
             Arrange your sequence of events and track where you are.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {total > 0 && (
             <span
-              className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-full border border-sky-100 bg-sky-50 px-3 py-[5px] text-[0.78rem] font-medium text-sky-700"
+              className={`inline-flex items-center gap-[7px] whitespace-nowrap rounded-full px-3 py-[5px] text-[0.78rem] font-medium ${t.sidebarCard} ${t.body}`}
               aria-live="polite"
             >
               <span className="inline-block h-[7px] w-[7px] rounded-full bg-green-600" />
@@ -326,7 +331,7 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
           <button
             type="button"
             onClick={add}
-            className="cursor-pointer rounded-[9px] border-none bg-blue-600 px-3.5 py-2 text-[0.83rem] font-medium text-white transition-colors hover:bg-blue-700"
+            className={`cursor-pointer rounded-xl border-none px-3.5 py-2 text-[0.83rem] font-medium transition-colors ${t.toggleOn}`}
           >
             + Add task
           </button>
@@ -340,17 +345,23 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
         aria-label="Timeline track"
       >
         {/* base + progress line */}
-        <div className="pointer-events-none absolute left-0 right-0 top-[61px] z-[2] h-1 rounded-full bg-[#eef2f6]" />
         <div
-          className="pointer-events-none absolute left-0 top-[61px] z-[3] h-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-500"
+          className="pointer-events-none absolute left-0 right-0 top-[61px] z-[2] h-1 rounded-full"
+          style={{ backgroundColor: t.track }}
+        />
+        <div
+          className="pointer-events-none absolute left-0 top-[61px] z-[3] h-1 rounded-full"
           style={{
             width: `${fillPct}%`,
+            backgroundColor: t.accent,
             transition: draggingId ? "none" : "width .45s ease",
           }}
         />
 
         {loaded && n === 0 && (
-          <p className="pointer-events-none absolute left-1/2 top-[78px] m-0 w-[90%] -translate-x-1/2 text-center text-[0.82rem] text-gray-400">
+          <p
+            className={`pointer-events-none absolute left-1/2 top-[78px] m-0 w-[90%] -translate-x-1/2 text-center text-[0.82rem] ${t.muted}`}
+          >
             No events yet — add your first one with “Add task”.
           </p>
         )}
@@ -376,15 +387,21 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
             >
               {/* label (always above the line) */}
               <span
-                className={`pointer-events-none absolute left-0 top-4 max-w-[130px] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[7px] border bg-white px-[9px] py-1 text-[0.78rem] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${
-                  isCurrent
-                    ? "border-blue-600 text-blue-600"
-                    : "border-gray-200 text-gray-700"
+                className={`pointer-events-none absolute left-0 top-4 max-w-[130px] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[7px] border px-[9px] py-1 text-[0.78rem] font-medium ${t.surface} ${
+                  isCurrent ? "" : `${t.rule} ${t.body}`
                 }`}
+                style={
+                  isCurrent
+                    ? { borderColor: t.accent, color: t.accent }
+                    : undefined
+                }
               >
                 {m.title}
               </span>
-              <span className="pointer-events-none absolute left-0 top-[50px] h-3 w-[1.5px] -translate-x-1/2 bg-gray-200" />
+              <span
+                className="pointer-events-none absolute left-0 top-[50px] h-3 w-[1.5px] -translate-x-1/2"
+                style={{ backgroundColor: t.track }}
+              />
 
               {/* marker button */}
               <button
@@ -411,7 +428,7 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
               {/* popover menu */}
               {isOpen && (
                 <div
-                  className="absolute left-0 top-[92px] z-[80] w-[232px] -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-3 shadow-[0_12px_32px_rgba(16,24,40,0.16)]"
+                  className={`absolute left-0 top-[92px] z-[80] w-[232px] -translate-x-1/2 rounded-xl border p-3 ${t.popover}`}
                   style={
                     left > 80
                       ? { left: "auto", right: 0, transform: "none" }
@@ -439,7 +456,7 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
                       }
                     }}
                     placeholder="Task title"
-                    className="mb-2.5 w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[0.85rem] text-gray-700 outline-none"
+                    className={`mb-2.5 w-full rounded-lg border px-2.5 py-2 text-[0.85rem] outline-none transition-all ${t.input}`}
                   />
                   <div
                     className="mb-2.5 flex gap-1.5"
@@ -468,14 +485,14 @@ export default function RoadmapTimeline({ id }: RoadmapTimelineProps) {
                     <button
                       type="button"
                       onClick={() => remove(m.id)}
-                      className="cursor-pointer rounded-md border-none bg-transparent px-2 py-[5px] text-[0.8rem] text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      className={`cursor-pointer rounded-md border-none bg-transparent px-2 py-[5px] text-[0.8rem] transition-colors hover:text-red-500 ${t.muted}`}
                     >
                       Delete
                     </button>
                     <button
                       type="button"
                       onClick={() => setOpenId(null)}
-                      className="cursor-pointer rounded-[7px] border-none bg-gray-100 px-3.5 py-1.5 text-[0.8rem] font-medium text-gray-700"
+                      className={`cursor-pointer rounded-[7px] border-none px-3.5 py-1.5 text-[0.8rem] font-medium ${t.sidebarCard} ${t.body}`}
                     >
                       Done
                     </button>

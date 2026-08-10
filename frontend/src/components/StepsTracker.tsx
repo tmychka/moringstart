@@ -24,7 +24,7 @@ const MONTHS = [
 
 const sliderClass =
   "flex-1 h-1 appearance-none rounded bg-black/10 outline-none " +
-  "[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(129,140,248,0.18)] " +
+  "[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(159,176,196,0.18)] " +
   "[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-accent";
 
 const numberClass =
@@ -304,7 +304,7 @@ export default function StepsTracker({ id }: StepsTrackerProps) {
           onClick={() => setEditing(null)}
         >
           <div
-            className="flex w-80 max-w-[90vw] flex-col gap-[18px] rounded-2xl border border-accent-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(129,140,248,0.08)]"
+            className="flex w-80 max-w-[90vw] flex-col gap-[18px] rounded-2xl border border-accent-dim bg-[#14181f] p-7 shadow-[0_0_40px_rgba(159,176,196,0.08)]"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"

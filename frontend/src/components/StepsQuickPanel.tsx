@@ -97,7 +97,7 @@ export default function StepsQuickPanel({ id, isLeft }: StepsQuickPanelProps) {
           Set goal
         </button>
         <button
-          className="flex-1 rounded-[9px] border border-black/5 py-2 text-[0.65rem] font-bold tracking-[0.03em] text-navy transition-colors"
+          className="flex-1 rounded-[9px] border border-black/5 py-2 text-[0.65rem] font-bold tracking-[0.03em] text-ink transition-colors"
           onClick={save}
         >
           {saved ? "Saved ✓" : "Save"}

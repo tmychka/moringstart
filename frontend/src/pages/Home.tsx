@@ -28,7 +28,7 @@ export default function Home() {
       {/* Manage metrics button */}
       <button
         onClick={() => setShowManage(true)}
-        className="absolute bottom-7 right-7 z-20 bg-transparent border border-[#4338ca] text-[#4338ca] rounded-lg py-[7px] px-4 text-[0.65rem] tracking-[0.18em] uppercase cursor-pointer font-normal font-[inherit] transition-colors duration-200 hover:text-[#312e81] hover:border-[#312e81]"
+        className="absolute bottom-7 right-7 z-20 bg-transparent border border-[#566578] text-[#566578] rounded-lg py-[7px] px-4 text-[0.65rem] tracking-[0.18em] uppercase cursor-pointer font-normal font-[inherit] transition-colors duration-200 hover:text-[#414d5d] hover:border-[#414d5d]"
       >
         Metrics
       </button>

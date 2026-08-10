@@ -5,9 +5,15 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { Metric, Theme, ThemeName } from "../types";
+import { treatmentOptions } from "../theme";
+import type { Metric, Scheme, Theme, Treatment } from "../types";
 
 const COLLAPSED_STORAGE_KEY = "dashboard-sidebar-collapsed";
+
+const SCHEMES: { value: Scheme; label: string }[] = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 const RAIL_WIDTH = "w-[64px]";
 const PANEL_WIDTH = "w-[236px]";
@@ -63,6 +69,7 @@ const ICONS = {
       <path d="M12 16.5h.01" />
     </>
   ),
+  code: <path d="m9.2 8.4-3.8 3.6 3.8 3.6M14.8 8.4l3.8 3.6-3.8 3.6" />,
   plus: <path d="M12 6.6v10.8M6.6 12h10.8" />,
   chevron: <path d="m8.6 10.4 3.4 3.4 3.4-3.4" />,
   panel: (
@@ -134,8 +141,10 @@ function useMediaQuery(query: string): boolean {
 
 interface SidebarProps {
   t: Theme;
-  theme: ThemeName;
-  onTheme: (theme: ThemeName) => void;
+  treatment: Treatment;
+  scheme: Scheme;
+  onTreatment: (treatment: Treatment) => void;
+  onScheme: (scheme: Scheme) => void;
   metrics: Metric[];
   onOpenMetric: (id: number) => void;
   onManageMetrics: () => void;
@@ -152,8 +161,10 @@ interface SidebarProps {
 
 export default function Sidebar({
   t,
-  theme,
-  onTheme,
+  treatment,
+  scheme,
+  onTreatment,
+  onScheme,
   metrics,
   onOpenMetric,
   onManageMetrics,
@@ -165,6 +176,7 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [metricsOpen, setMetricsOpen] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [backgroundsOpen, setBackgroundsOpen] = useState(false);
 
   const full = variant === "full";
 
@@ -182,9 +194,16 @@ export default function Sidebar({
     }
   }, [collapsed]);
 
+  // Both footer panels need the panel open to be readable, so a click on the
+  // rail expands the sidebar and opens the panel in one go.
   const openHelp = () => {
     if (collapsed) setCollapsed(false);
     setHelpOpen((open) => (collapsed ? true : !open));
+  };
+
+  const openBackgrounds = () => {
+    if (collapsed) setCollapsed(false);
+    setBackgroundsOpen((open) => (collapsed ? true : !open));
   };
 
   return (
@@ -300,18 +319,19 @@ export default function Sidebar({
             </ul>
           )}
 
-          {full &&
-            quickLinks.map((link) => (
-              <NavItem
-                key={link.label}
-                t={t}
-                icon={link.icon}
-                label={link.label}
-                collapsed={collapsed}
-                active={activePath === link.to}
-                onClick={() => onNavigate(link.to)}
-              />
-            ))}
+          {/* Rendered in both variants: full mode fills these from the metric
+              list, minimal mode from whatever the page handed down. */}
+          {quickLinks.map((link) => (
+            <NavItem
+              key={link.label}
+              t={t}
+              icon={link.icon}
+              label={link.label}
+              collapsed={collapsed}
+              active={activePath === link.to}
+              onClick={() => onNavigate(link.to)}
+            />
+          ))}
         </nav>
 
         <div className={`border-t px-3 py-3 ${t.rule}`}>
@@ -337,12 +357,84 @@ export default function Sidebar({
               onClick={openHelp}
             />
           )}
+          {expanded && backgroundsOpen && (
+            // Capped against the viewport so the panel scrolls on a short
+            // window instead of pushing the nav above it out of the sidebar.
+            <div
+              className={`mb-2 max-h-[42vh] overflow-y-auto rounded-xl p-1.5 ${t.sidebarCard}`}
+            >
+              <div
+                role="group"
+                aria-label="Colour scheme"
+                className="mb-1 flex gap-1"
+              >
+                {SCHEMES.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onScheme(value)}
+                    aria-pressed={value === scheme}
+                    className={`flex-1 cursor-pointer rounded-lg border-none px-2 py-1.5 text-[0.72rem] transition-colors ${
+                      value === scheme
+                        ? `font-medium ${t.sidebarItemActive}`
+                        : `bg-transparent ${t.sidebarItem}`
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <ul className="m-0 list-none p-0">
+                {treatmentOptions.map(([name, schemes]) => {
+                  // Preview the treatment in the scheme that is actually on, so
+                  // the swatch shows what picking it would give you.
+                  const palette = schemes[scheme];
+                  const active = name === treatment;
+
+                  return (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        onClick={() => onTreatment(name)}
+                        aria-current={active ? "true" : undefined}
+                        className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-none bg-transparent px-2.5 py-1.5 text-left text-[0.78rem] transition-colors ${
+                          active ? t.sidebarItemActive : t.sidebarItem
+                        }`}
+                      >
+                        {/* The swatch is the treatment in miniature — the same
+                            backdrop it paints behind the app, over the same
+                            base colour. Tiled patterns need their own scale
+                            here, or a 96px grid would leave the circle blank. */}
+                        <span
+                          className="h-4 w-4 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor: palette.appBg,
+                            backgroundImage: palette.backdrop,
+                            backgroundSize: palette.backdropSize
+                              ? "10px 10px, 10px 10px, 4px 4px, 4px 4px"
+                              : undefined,
+                            boxShadow: `inset 0 0 0 1px ${palette.accent}66`,
+                          }}
+                        />
+                        <span
+                          className={`truncate ${active ? "font-medium" : ""}`}
+                        >
+                          {palette.title}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           <NavItem
             t={t}
-            icon={theme === "dark" ? "sun" : "moon"}
-            label={theme === "dark" ? "Light background" : "Dark background"}
+            icon={t.scheme === "dark" ? "moon" : "sun"}
+            label="Background"
             collapsed={collapsed}
-            onClick={() => onTheme(theme === "dark" ? "light" : "dark")}
+            active={expanded && backgroundsOpen}
+            onClick={openBackgrounds}
           />
         </div>
       </aside>
@@ -400,7 +492,9 @@ function NavItem({
         aria-label={collapsed ? label : undefined}
         aria-expanded={expandedGroup === undefined ? undefined : expandedGroup}
         aria-current={active ? "page" : undefined}
-        className={`flex flex-1 items-center rounded-xl border-none bg-transparent text-left transition-colors ${
+        // min-w-0 so a long label ellipsises instead of pushing past the panel:
+        // a flex item won't shrink below its content without it.
+        className={`flex min-w-0 flex-1 items-center rounded-xl border-none bg-transparent text-left transition-colors ${
           collapsed ? "h-10 justify-center px-0" : "gap-3 px-3 py-2.5"
         } ${active ? t.sidebarItemActive : t.sidebarItem} ${
           interactive ? "cursor-pointer" : "cursor-default"
@@ -409,7 +503,8 @@ function NavItem({
         <Icon name={icon} />
         {!collapsed && (
           <span
-            className={`flex-1 truncate text-[0.83rem] ${active ? "font-medium" : ""}`}
+            title={label}
+            className={`min-w-0 flex-1 truncate text-[0.83rem] ${active ? "font-medium" : ""}`}
           >
             {label}
           </span>

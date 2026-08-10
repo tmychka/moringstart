@@ -2,13 +2,21 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getNotes, createNote, updateNote, deleteNote } from "../api";
+import AppSidebar from "./AppSidebar";
 import RoadmapTimeline from "./RoadmapTimeline";
-import type { MetricId, Note, NoteUpdate } from "../types";
+import Workspace from "./workspace/Workspace";
+import { cardClass, useTheme } from "../theme";
+import { DEV_TOPICS, type DevTopic } from "../developerTopics";
+import type { QuickLink } from "./Sidebar";
+import type { MetricId, Note, NoteUpdate, Theme } from "../types";
 
-const textareaClass =
-  "w-full resize-y rounded-[10px] border border-gray-200 px-3.5 py-3 text-[0.95rem] leading-[1.5] text-gray-700 outline-none";
-const linkBtnClass =
-  "cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 text-[0.8rem] text-gray-400";
+const textareaClass = (t: Theme) =>
+  `w-full resize-y rounded-2xl border px-4 py-3 text-[0.95rem] leading-[1.5] outline-none transition-all ${t.input}`;
+// The row of small text actions on a note: quiet until the pointer is on them.
+const linkBtnClass = (t: Theme) =>
+  `cursor-pointer rounded-md border-none bg-transparent px-2 py-0.5 text-[0.8rem] transition-colors ${t.iconBtn}`;
+const primaryBtnClass = (t: Theme) =>
+  `cursor-pointer rounded-2xl border-none px-[18px] py-2.5 text-[0.66rem] uppercase tracking-[0.18em] transition-all disabled:cursor-default disabled:opacity-40 ${t.toggleOn}`;
 
 const fmtDate = (s: string): string => {
   if (!s) return "";
@@ -29,12 +37,63 @@ interface ActiveWord {
   draft: string;
 }
 
-interface NotebookProps {
+interface DeveloperProps {
   id: MetricId;
+  /** The subject being read; without one the page is the hub over all of them. */
+  topic?: DevTopic;
+  /** Page id from the URL when a subject's workspace has one open. */
+  pageId?: string;
 }
 
-export default function Notebook({ id }: NotebookProps) {
+// Built once from the topic list so the sidebar can never drift from the routes.
+const topicLinksFor = (id: MetricId): QuickLink[] =>
+  DEV_TOPICS.map((topic) => ({
+    icon: "code" as const,
+    label: topic.label,
+    to: `/metric/${id}/${topic.slug}`,
+  }));
+
+/**
+ * Two pages behind one component. Without a subject this is the hub — the
+ * roadmap and the running note feed. With one it is that subject's workspace,
+ * which owns its own two-pane layout and scrolling.
+ */
+export default function Developer({ id, topic, pageId }: DeveloperProps) {
+  const { t } = useTheme();
   const navigate = useNavigate();
+
+  return (
+    // The sidebar owns the way back, so the shell is the one every other page
+    // with a sidebar uses: rail, then the page's own scroll column.
+    <div
+      className={`relative flex h-screen w-screen overflow-hidden font-system transition-colors duration-300 ${t.page}`}
+    >
+      <AppSidebar variant="minimal" links={topicLinksFor(id)} />
+
+      {topic ? (
+        <Workspace
+          t={t}
+          metricId={id}
+          topic={topic}
+          pageId={pageId}
+          onSelectPage={(next) =>
+            navigate(
+              next === null
+                ? `/metric/${id}/${topic.slug}`
+                : `/metric/${id}/${topic.slug}/${next}`,
+              { replace: next === null }
+            )
+          }
+        />
+      ) : (
+        <DeveloperHub t={t} id={id} />
+      )}
+    </div>
+  );
+}
+
+/** The subject-less view: the roadmap across every subject, then every note. */
+function DeveloperHub({ t, id }: { t: Theme; id: MetricId }) {
   const queryClient = useQueryClient();
   const { data: notes = [] } = useQuery({
     queryKey: ["notes", id],
@@ -52,7 +111,8 @@ export default function Notebook({ id }: NotebookProps) {
     queryClient.invalidateQueries({ queryKey: ["notes", id] });
 
   const addMut = useMutation({
-    mutationFn: (content: string) => createNote(id, content),
+    // The hub writes untagged notes; subjects keep their material in blocks.
+    mutationFn: (content: string) => createNote(id, content, ""),
     onSuccess: invalidate,
   });
   const updateMut = useMutation({
@@ -107,19 +167,10 @@ export default function Notebook({ id }: NotebookProps) {
   };
 
   return (
-    <div className="h-screen w-screen overflow-y-auto bg-white font-system text-gray-700">
+    <div className="h-full flex-1 overflow-y-auto">
       <div className="mx-auto px-6 pb-20 pt-10">
-        <button
-          onClick={() => navigate("/")}
-          className="cursor-pointer border-none bg-transparent p-0 text-[0.7rem] uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-700"
-        >
-          ← Back
-        </button>
-
-        <h1 className="mb-1.5 mt-5 text-[1.9rem] font-semibold text-gray-900">
-          Programmer&apos;s Notebook
-        </h1>
-        <p className="mb-7 text-[0.92rem] text-gray-400">
+        <h1 className="mb-1.5 text-[1.9rem] font-semibold">Developer</h1>
+        <p className={`mb-7 text-[0.92rem] ${t.muted}`}>
           Track what you&apos;ve learned. Tip: turn on “Edit links” to attach a
           URL to any word.
         </p>
@@ -133,12 +184,12 @@ export default function Notebook({ id }: NotebookProps) {
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="What did you learn today?"
               rows={4}
-              className={`${textareaClass} pb-12`}
+              className={`${textareaClass(t)} pb-16`}
             />
             <button
               onClick={add}
               disabled={!newContent.trim()}
-              className="absolute bottom-2.5 right-2.5 cursor-pointer rounded-lg border border-gray-200 bg-white px-[18px] py-2 text-[0.9rem] font-semibold text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all enabled:hover:border-gray-300 enabled:hover:bg-gray-50 enabled:hover:shadow-[0_2px_8px_rgba(0,0,0,0.10)]"
+              className={`absolute bottom-3 right-3 ${primaryBtnClass(t)}`}
             >
               Add entry
             </button>
@@ -147,17 +198,14 @@ export default function Notebook({ id }: NotebookProps) {
 
         <div className="flex flex-col gap-4">
           {notes.length === 0 && (
-            <p className="py-6 text-center text-[0.92rem] text-gray-400">
+            <p className={`py-6 text-center text-[0.92rem] ${t.muted}`}>
               No entries yet. Add your first one above.
             </p>
           )}
           {notes.map((note) => (
-            <article
-              key={note.id}
-              className="rounded-[14px] border border-gray-200 bg-white px-[18px] py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
-            >
+            <article key={note.id} className={cardClass(t)}>
               <div className="mb-2.5 flex items-center justify-between gap-3">
-                <time className="text-[0.78rem] text-gray-400">
+                <time className={`text-[0.78rem] ${t.muted}`}>
                   {fmtDate(note.created_at)}
                 </time>
                 <div className="flex shrink-0 gap-1">
@@ -172,21 +220,21 @@ export default function Notebook({ id }: NotebookProps) {
                         }}
                         className={
                           linkModeId === note.id
-                            ? "cursor-pointer rounded-md border-none bg-blue-50 px-2 py-0.5 text-[0.8rem] font-medium text-blue-600"
-                            : linkBtnClass
+                            ? `cursor-pointer rounded-md border-none px-2 py-0.5 text-[0.8rem] font-medium ${t.toggleOn}`
+                            : linkBtnClass(t)
                         }
                       >
                         {linkModeId === note.id ? "Done linking" : "Edit links"}
                       </button>
                       <button
                         onClick={() => startEdit(note)}
-                        className={linkBtnClass}
+                        className={linkBtnClass(t)}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => remove(note.id)}
-                        className={linkBtnClass}
+                        className={linkBtnClass(t)}
                       >
                         Delete
                       </button>
@@ -201,19 +249,19 @@ export default function Notebook({ id }: NotebookProps) {
                     value={editDraft}
                     onChange={(e) => setEditDraft(e.target.value)}
                     rows={4}
-                    className={textareaClass}
+                    className={textareaClass(t)}
                   />
-                  <div className="flex items-center">
+                  <div className="mt-2.5 flex items-center gap-2">
                     <button
                       onClick={() => saveEdit(note)}
                       disabled={!editDraft.trim()}
-                      className="mt-2.5 cursor-pointer rounded-lg border-none bg-[#333] px-[18px] py-[9px] text-[0.9rem] font-medium text-white"
+                      className={primaryBtnClass(t)}
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setEditingId(null)}
-                      className="ml-2 mt-2.5 cursor-pointer rounded-lg border border-gray-200 bg-transparent px-[18px] py-[9px] text-[0.9rem] text-gray-400"
+                      className={`cursor-pointer rounded-2xl border bg-transparent px-[18px] py-2.5 text-[0.66rem] uppercase tracking-[0.18em] transition-colors ${t.outlineBtn}`}
                     >
                       Cancel
                     </button>
@@ -221,6 +269,7 @@ export default function Notebook({ id }: NotebookProps) {
                 </div>
               ) : (
                 <NoteBody
+                  t={t}
                   note={note}
                   linkMode={linkModeId === note.id}
                   activeWord={activeWord}
@@ -262,6 +311,7 @@ const tokenize = (content: string): Token[] => {
 };
 
 interface NoteBodyProps {
+  t: Theme;
   note: Note;
   linkMode: boolean;
   activeWord: ActiveWord | null;
@@ -272,6 +322,7 @@ interface NoteBodyProps {
 }
 
 function NoteBody({
+  t,
   note,
   linkMode,
   activeWord,
@@ -293,7 +344,9 @@ function NoteBody({
           activeWord.wordIndex === wordIndex;
 
         const editor = isActive && (
-          <span className="absolute left-0 top-[1.6em] z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white p-1 shadow-[0_6px_20px_rgba(0,0,0,0.12)]">
+          <span
+            className={`absolute left-0 top-[1.6em] z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-xl border p-1 ${t.popover}`}
+          >
             <input
               autoFocus
               value={activeWord.draft}
@@ -303,17 +356,17 @@ function NoteBody({
                 if (e.key === "Escape") onCancelLink();
               }}
               placeholder="https://…  (empty to remove)"
-              className="w-[220px] rounded-md border border-gray-200 px-2 py-1.5 text-[0.85rem] outline-none"
+              className={`w-[220px] rounded-lg border px-2.5 py-1.5 text-[0.85rem] outline-none transition-all ${t.input}`}
             />
             <button
               onClick={onSaveLink}
-              className="cursor-pointer rounded-md border-none bg-blue-600 px-3 py-1.5 text-[0.82rem] text-white"
+              className={`cursor-pointer rounded-lg border-none px-3 py-1.5 text-[0.82rem] ${t.toggleOn}`}
             >
               Save
             </button>
             <button
               onClick={onCancelLink}
-              className="cursor-pointer border-none bg-transparent px-1 text-[0.9rem] text-gray-400"
+              className={`cursor-pointer rounded-lg border-none bg-transparent px-1.5 py-1 text-[0.9rem] transition-colors ${t.iconBtn}`}
             >
               ✕
             </button>
@@ -327,8 +380,13 @@ function NoteBody({
                 onClick={() => onWordClick(wordIndex)}
                 className={
                   url
-                    ? "cursor-pointer text-blue-600 underline"
-                    : "cursor-pointer border-b border-dashed border-gray-400"
+                    ? "cursor-pointer underline"
+                    : "cursor-pointer border-b border-dashed"
+                }
+                // A word with a link is the accent; one without only gets a
+                // hint of it under the text.
+                style={
+                  url ? { color: t.accent } : { borderColor: t.accentSoft }
                 }
                 title="Click to set a link"
               >
@@ -346,7 +404,8 @@ function NoteBody({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline"
+              className="underline"
+              style={{ color: t.accent }}
             >
               {text}
             </a>

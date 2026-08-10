@@ -2,9 +2,10 @@ import { useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import StepsTracker from "../components/StepsTracker";
-import Notebook from "../components/Notebook";
+import Developer from "../components/Developer";
 import EnglishWords from "../components/EnglishWords";
 import { getMetrics } from "../api";
+import { topicBySlug } from "../developerTopics";
 import { labelClass, useTheme } from "../theme";
 import { useBackGesture } from "../useBackGesture";
 
@@ -12,7 +13,7 @@ import { useBackGesture } from "../useBackGesture";
 const ENGLISH_METRIC_ID = "2";
 
 export default function MetricPage() {
-  const { id } = useParams();
+  const { id, topic: topicSlug, pageId } = useParams();
   const navigate = useNavigate();
   const { t } = useTheme();
   const { data: metrics = [], isLoading } = useQuery({
@@ -28,7 +29,9 @@ export default function MetricPage() {
   if (id === ENGLISH_METRIC_ID) return <EnglishWords />;
   // The route param is handed down verbatim: child query keys are built from it, and
   // the dashboard builds the same keys with `String(metric.id)`, so they must match.
-  if (id && metric?.type === "notebook") return <Notebook id={id} />;
+  // An unknown subject slug falls through to the hub rather than to "not found".
+  if (id && metric?.type === "notebook")
+    return <Developer id={id} topic={topicBySlug(topicSlug)} pageId={pageId} />;
   if (id && metric?.type === "steps") return <StepsTracker id={id} />;
 
   return (

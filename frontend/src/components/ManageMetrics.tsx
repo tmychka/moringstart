@@ -68,7 +68,7 @@ export default function ManageMetrics({ onClose }: ManageMetricsProps) {
       className="absolute inset-0 z-50 flex items-center justify-center bg-black/65 [backdrop-filter:blur(6px)]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex max-h-[70vh] w-80 flex-col gap-5 rounded-2xl border border-accent-dim bg-[#0d1526] p-7 shadow-[0_0_40px_rgba(129,140,248,0.08)]">
+      <div className="flex max-h-[70vh] w-80 flex-col gap-5 rounded-2xl border border-accent-dim bg-[#14181f] p-7 shadow-[0_0_40px_rgba(159,176,196,0.08)]">
         {/* Header */}
         <div className="flex items-center justify-between">
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-accent">
