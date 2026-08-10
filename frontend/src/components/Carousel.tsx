@@ -15,7 +15,7 @@ const LOCK_MS = 550;
 const WHEEL_RESET_MS = 180;
 const WHEEL_THRESHOLD = 60;
 const TOUCH_THRESHOLD = 50;
-const DOT_COLOR = "var(--carousel-dot, #4338ca)";
+const DOT_COLOR = "var(--carousel-dot, #7e8fa4)";
 
 type Timer = ReturnType<typeof setTimeout>;
 

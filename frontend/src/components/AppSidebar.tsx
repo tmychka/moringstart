@@ -30,7 +30,7 @@ const quickLinksFor = (metrics: Metric[]): QuickLink[] => {
       ? [
           {
             icon: "notes" as const,
-            label: "Notes",
+            label: "Developer",
             to: `/metric/${notebook.id}`,
           },
         ]
@@ -50,6 +50,11 @@ const quickLinksFor = (metrics: Metric[]): QuickLink[] => {
 interface AppSidebarProps {
   /** `minimal` drops everything but the brand row, Dashboard and the theme switch. */
   variant?: "full" | "minimal";
+  /**
+   * Extra entries for a minimal sidebar, so a page can offer its own sections.
+   * Ignored in full mode, which builds its shortcuts from the metric list.
+   */
+  links?: QuickLink[];
 }
 
 /**
@@ -60,10 +65,14 @@ interface AppSidebarProps {
  * Must sit inside a positioned element — both the floating panel below `md` and
  * the dialog are absolutely positioned against it.
  */
-export default function AppSidebar({ variant = "full" }: AppSidebarProps = {}) {
+export default function AppSidebar({
+  variant = "full",
+  links = [],
+}: AppSidebarProps = {}) {
+  const full = variant === "full";
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { t, theme, setTheme } = useTheme();
+  const { t, treatment, scheme, setTreatment, setScheme } = useTheme();
   const [showManage, setShowManage] = useState(false);
 
   // Same query key the pages use, so this shares their cache entry rather than
@@ -77,18 +86,20 @@ export default function AppSidebar({ variant = "full" }: AppSidebarProps = {}) {
     <>
       <Sidebar
         t={t}
-        theme={theme}
-        onTheme={setTheme}
+        treatment={treatment}
+        scheme={scheme}
+        onTreatment={setTreatment}
+        onScheme={setScheme}
         metrics={metrics}
         activePath={pathname}
         onOpenMetric={(id) => navigate(`/metric/${id}`)}
         onManageMetrics={() => setShowManage(true)}
         onNavigate={navigate}
-        quickLinks={quickLinksFor(metrics)}
+        quickLinks={full ? quickLinksFor(metrics) : links}
         variant={variant}
       />
       {/* Only the full sidebar has the + that opens this. */}
-      {variant === "full" && showManage && (
+      {full && showManage && (
         <ManageMetrics onClose={() => setShowManage(false)} />
       )}
     </>

@@ -378,7 +378,7 @@ export default function Dashboard() {
             <Stat
               t={t}
               className="col-span-6 md:col-span-4"
-              label="Notes"
+              label="Developer"
               value={notes?.length ?? 0}
               hint={
                 notes?.length
