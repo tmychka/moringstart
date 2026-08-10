@@ -7,6 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/metrics": "http://localhost:3000",
+      "/workspace": "http://localhost:3000",
     },
   },
 });

@@ -3,13 +3,19 @@ import cors from 'cors';
 import type { SQLInputValue } from 'node:sqlite';
 import db, { execute, insertedId, queryAll, queryOne, required, rowCount } from './db';
 import {
+  isBlockType,
   isMetricType,
   isRoadmapStatus,
+  type Block,
+  type BlockRow,
   type ErrorBody,
+  type Folder,
+  type FolderWithPages,
   type Metric,
   type Milestone,
   type Note,
   type NoteRow,
+  type Page,
   type StepsPayload,
 } from './types';
 
@@ -146,28 +152,44 @@ const parseNote = ({ links, ...rest }: NoteRow): Note => ({
   links: JSON.parse(links || '{}') as Record<string, string>,
 });
 
+// `?topic=` narrows the list to one subject; omitting it returns every note on
+// the metric, so the metric's own page still sees the lot.
 app.get('/metrics/:id/notes', (req, res: Response<Note[]>) => {
   const metricId = Number(req.params.id);
-  const rows = queryAll<NoteRow>(
-    'SELECT * FROM notes WHERE metric_id = ? ORDER BY created_at DESC',
-    metricId,
-  );
+  const topic = typeof req.query.topic === 'string' ? req.query.topic : undefined;
+  const rows =
+    topic === undefined
+      ? queryAll<NoteRow>(
+          'SELECT * FROM notes WHERE metric_id = ? ORDER BY created_at DESC',
+          metricId,
+        )
+      : queryAll<NoteRow>(
+          'SELECT * FROM notes WHERE metric_id = ? AND topic = ? ORDER BY created_at DESC',
+          metricId,
+          topic,
+        );
   res.json(rows.map(parseNote));
 });
 
 app.post('/metrics/:id/notes', (req, res: Response<Note | ErrorBody>) => {
   const metricId = Number(req.params.id);
   if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
-  const content = trimmed(bodyOf(req).content);
-  if (!content) return res.status(400).json({ error: 'content required' });
-  const info = execute('INSERT INTO notes (metric_id, content) VALUES (?, ?)', metricId, content);
+  const { content, topic } = bodyOf(req);
+  const cleanContent = trimmed(content);
+  if (!cleanContent) return res.status(400).json({ error: 'content required' });
+  const info = execute(
+    'INSERT INTO notes (metric_id, content, topic) VALUES (?, ?, ?)',
+    metricId,
+    cleanContent,
+    typeof topic === 'string' ? topic : '',
+  );
   const row = queryOne<NoteRow>('SELECT * FROM notes WHERE id = ?', insertedId(info));
   return res.status(201).json(parseNote(required(row, 'note')));
 });
 
 app.put('/metrics/:id/notes/:noteId', (req, res: Response<Note | ErrorBody>) => {
   const { noteId } = req.params;
-  const { content, links } = bodyOf(req);
+  const { content, links, topic } = bodyOf(req);
   const sets: string[] = [];
   const values: SQLInputValue[] = [];
   if (typeof content === 'string') {
@@ -179,6 +201,11 @@ app.put('/metrics/:id/notes/:noteId', (req, res: Response<Note | ErrorBody>) => 
   if (links && typeof links === 'object') {
     sets.push('links = ?');
     values.push(JSON.stringify(links));
+  }
+  // '' is a real value here — it moves a note back onto the metric itself.
+  if (typeof topic === 'string') {
+    sets.push('topic = ?');
+    values.push(topic);
   }
   if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
   sets.push("updated_at = datetime('now')");
@@ -277,6 +304,239 @@ app.put('/metrics/:id/roadmap/:milestoneId', (req, res: Response<Milestone | Err
 app.delete('/metrics/:id/roadmap/:milestoneId', (req, res: Response<ErrorBody | void>) => {
   const info = execute('DELETE FROM roadmap_milestones WHERE id = ?', req.params.milestoneId);
   if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.status(204).end();
+});
+
+// --- Workspace: folders → pages → blocks ---
+
+/** Editing a block is editing its page, so the tree can show what moved last. */
+const touchPage = (pageId: SQLInputValue): void => {
+  execute("UPDATE workspace_pages SET updated_at = datetime('now') WHERE id = ?", pageId);
+};
+
+/** Appends to the end of a list, so a new row lands where it was asked for. */
+const nextPosition = (table: string, whereSql: string, ...params: SQLInputValue[]): number => {
+  const row = queryOne<{ next: number | null }>(
+    `SELECT MAX(position) + 1 AS next FROM ${table} WHERE ${whereSql}`,
+    ...params,
+  );
+  return row?.next ?? 0;
+};
+
+const parseBlock = ({ content, ...rest }: BlockRow): Block => ({
+  ...rest,
+  content: JSON.parse(content || '{}') as Record<string, unknown>,
+});
+
+/** The whole navigation tree for one subject; blocks are fetched per page. */
+app.get('/metrics/:id/workspace/:topic', (req, res: Response<FolderWithPages[]>) => {
+  const metricId = Number(req.params.id);
+  const folders = queryAll<Folder>(
+    'SELECT * FROM workspace_folders WHERE metric_id = ? AND topic = ? ORDER BY position ASC, id ASC',
+    metricId,
+    req.params.topic,
+  );
+  if (folders.length === 0) return res.json([]);
+  const placeholders = folders.map(() => '?').join(', ');
+  const pages = queryAll<Page>(
+    `SELECT * FROM workspace_pages WHERE folder_id IN (${placeholders}) ORDER BY position ASC, id ASC`,
+    ...folders.map((f) => f.id),
+  );
+  return res.json(
+    folders.map((folder) => ({
+      ...folder,
+      pages: pages.filter((page) => page.folder_id === folder.id),
+    })),
+  );
+});
+
+app.post('/metrics/:id/workspace/:topic/folders', (req, res: Response<Folder | ErrorBody>) => {
+  const metricId = Number(req.params.id);
+  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
+  const { topic } = req.params;
+  const name = trimmed(bodyOf(req).name) ?? 'New folder';
+  const info = execute(
+    'INSERT INTO workspace_folders (metric_id, topic, name, position) VALUES (?, ?, ?, ?)',
+    metricId,
+    topic,
+    name,
+    nextPosition('workspace_folders', 'metric_id = ? AND topic = ?', metricId, topic),
+  );
+  const row = queryOne<Folder>('SELECT * FROM workspace_folders WHERE id = ?', insertedId(info));
+  return res.status(201).json(required(row, 'folder'));
+});
+
+app.put('/workspace/folders/:folderId', (req, res: Response<Folder | ErrorBody>) => {
+  const { folderId } = req.params;
+  const { name, position } = bodyOf(req);
+  const sets: string[] = [];
+  const values: SQLInputValue[] = [];
+  if (name !== undefined) {
+    const clean = trimmed(name);
+    if (!clean) return res.status(400).json({ error: 'name required' });
+    sets.push('name = ?');
+    values.push(clean);
+  }
+  if (position !== undefined) {
+    const n = Number(position);
+    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
+    sets.push('position = ?');
+    values.push(n);
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+  values.push(folderId);
+  const info = execute(`UPDATE workspace_folders SET ${sets.join(', ')} WHERE id = ?`, ...values);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  const row = queryOne<Folder>('SELECT * FROM workspace_folders WHERE id = ?', folderId);
+  return res.json(required(row, 'folder'));
+});
+
+// Children are removed explicitly rather than leaning on ON DELETE CASCADE, so
+// the cleanup holds whether or not foreign keys are enforced on this connection.
+app.delete('/workspace/folders/:folderId', (req, res: Response<ErrorBody | void>) => {
+  const { folderId } = req.params;
+  execute(
+    'DELETE FROM workspace_blocks WHERE page_id IN (SELECT id FROM workspace_pages WHERE folder_id = ?)',
+    folderId,
+  );
+  execute('DELETE FROM workspace_pages WHERE folder_id = ?', folderId);
+  const info = execute('DELETE FROM workspace_folders WHERE id = ?', folderId);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.status(204).end();
+});
+
+app.post('/workspace/folders/:folderId/pages', (req, res: Response<Page | ErrorBody>) => {
+  const { folderId } = req.params;
+  const folder = queryOne<Folder>('SELECT * FROM workspace_folders WHERE id = ?', folderId);
+  if (!folder) return res.status(404).json({ error: 'folder not found' });
+  const { title, icon } = bodyOf(req);
+  const info = execute(
+    'INSERT INTO workspace_pages (folder_id, title, icon, position) VALUES (?, ?, ?, ?)',
+    folderId,
+    trimmed(title) ?? 'Untitled',
+    typeof icon === 'string' ? icon : '',
+    nextPosition('workspace_pages', 'folder_id = ?', folderId),
+  );
+  const row = queryOne<Page>('SELECT * FROM workspace_pages WHERE id = ?', insertedId(info));
+  return res.status(201).json(required(row, 'page'));
+});
+
+app.put('/workspace/pages/:pageId', (req, res: Response<Page | ErrorBody>) => {
+  const { pageId } = req.params;
+  const { title, icon, position, folder_id } = bodyOf(req);
+  const sets: string[] = [];
+  const values: SQLInputValue[] = [];
+  if (title !== undefined) {
+    const clean = trimmed(title);
+    if (!clean) return res.status(400).json({ error: 'title required' });
+    sets.push('title = ?');
+    values.push(clean);
+  }
+  // '' is a real value here — it clears the icon back to the generic mark.
+  if (typeof icon === 'string') {
+    sets.push('icon = ?');
+    values.push(icon);
+  }
+  if (position !== undefined) {
+    const n = Number(position);
+    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
+    sets.push('position = ?');
+    values.push(n);
+  }
+  if (folder_id !== undefined) {
+    const n = Number(folder_id);
+    if (!queryOne<Folder>('SELECT * FROM workspace_folders WHERE id = ?', n)) {
+      return res.status(400).json({ error: 'folder not found' });
+    }
+    sets.push('folder_id = ?');
+    values.push(n);
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+  sets.push("updated_at = datetime('now')");
+  values.push(pageId);
+  const info = execute(`UPDATE workspace_pages SET ${sets.join(', ')} WHERE id = ?`, ...values);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  const row = queryOne<Page>('SELECT * FROM workspace_pages WHERE id = ?', pageId);
+  return res.json(required(row, 'page'));
+});
+
+app.delete('/workspace/pages/:pageId', (req, res: Response<ErrorBody | void>) => {
+  const { pageId } = req.params;
+  execute('DELETE FROM workspace_blocks WHERE page_id = ?', pageId);
+  const info = execute('DELETE FROM workspace_pages WHERE id = ?', pageId);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.status(204).end();
+});
+
+app.get('/workspace/pages/:pageId/blocks', (req, res: Response<Block[]>) => {
+  const rows = queryAll<BlockRow>(
+    'SELECT * FROM workspace_blocks WHERE page_id = ? ORDER BY position ASC, id ASC',
+    req.params.pageId,
+  );
+  res.json(rows.map(parseBlock));
+});
+
+app.post('/workspace/pages/:pageId/blocks', (req, res: Response<Block | ErrorBody>) => {
+  const { pageId } = req.params;
+  if (!queryOne<Page>('SELECT * FROM workspace_pages WHERE id = ?', pageId)) {
+    return res.status(404).json({ error: 'page not found' });
+  }
+  const { type, content } = bodyOf(req);
+  if (!isBlockType(type)) return res.status(400).json({ error: 'invalid block type' });
+  const info = execute(
+    'INSERT INTO workspace_blocks (page_id, type, content, position) VALUES (?, ?, ?, ?)',
+    pageId,
+    type,
+    JSON.stringify(content && typeof content === 'object' ? content : {}),
+    nextPosition('workspace_blocks', 'page_id = ?', pageId),
+  );
+  touchPage(pageId);
+  const row = queryOne<BlockRow>('SELECT * FROM workspace_blocks WHERE id = ?', insertedId(info));
+  return res.status(201).json(parseBlock(required(row, 'block')));
+});
+
+app.put('/workspace/blocks/:blockId', (req, res: Response<Block | ErrorBody>) => {
+  const { blockId } = req.params;
+  const { type, content, position } = bodyOf(req);
+  const sets: string[] = [];
+  const values: SQLInputValue[] = [];
+  if (type !== undefined) {
+    if (!isBlockType(type)) return res.status(400).json({ error: 'invalid block type' });
+    sets.push('type = ?');
+    values.push(type);
+  }
+  if (content !== undefined) {
+    if (!content || typeof content !== 'object') {
+      return res.status(400).json({ error: 'content must be an object' });
+    }
+    sets.push('content = ?');
+    values.push(JSON.stringify(content));
+  }
+  if (position !== undefined) {
+    const n = Number(position);
+    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
+    sets.push('position = ?');
+    values.push(n);
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+  sets.push("updated_at = datetime('now')");
+  values.push(blockId);
+  const info = execute(`UPDATE workspace_blocks SET ${sets.join(', ')} WHERE id = ?`, ...values);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  const row = required(
+    queryOne<BlockRow>('SELECT * FROM workspace_blocks WHERE id = ?', blockId),
+    'block',
+  );
+  touchPage(row.page_id);
+  return res.json(parseBlock(row));
+});
+
+app.delete('/workspace/blocks/:blockId', (req, res: Response<ErrorBody | void>) => {
+  const { blockId } = req.params;
+  const row = queryOne<BlockRow>('SELECT * FROM workspace_blocks WHERE id = ?', blockId);
+  const info = execute('DELETE FROM workspace_blocks WHERE id = ?', blockId);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  if (row) touchPage(row.page_id);
   return res.status(204).end();
 });
 

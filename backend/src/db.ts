@@ -72,10 +72,20 @@ db.exec(`
     metric_id INTEGER NOT NULL,
     content TEXT NOT NULL,
     links TEXT NOT NULL DEFAULT '{}',
+    topic TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `);
+
+// Migration: notes written before subjects existed keep the '' topic, which is
+// what the metric's own page already asks for, so nothing moves.
+const hasTopic = queryAll<{ name: string }>('PRAGMA table_info(notes)').some(
+  (col) => col.name === 'topic',
+);
+if (!hasTopic) {
+  db.exec("ALTER TABLE notes ADD COLUMN topic TEXT NOT NULL DEFAULT ''");
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS roadmap_milestones (
@@ -88,6 +98,49 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `);
+
+// A workspace is the (metric_id, topic) pair rather than a row of its own, so a
+// subject gets one the moment its first folder is created and never needs seeding.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workspace_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    metric_id INTEGER NOT NULL,
+    topic TEXT NOT NULL,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workspace_pages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    folder_id INTEGER NOT NULL REFERENCES workspace_folders(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT '',
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// `content` is per-type JSON: keeping it opaque here means a new block type is a
+// frontend change plus one entry in BLOCK_TYPES, never a migration.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workspace_blocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    page_id INTEGER NOT NULL REFERENCES workspace_pages(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '{}',
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_folders_topic ON workspace_folders(metric_id, topic)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_pages_folder ON workspace_pages(folder_id)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_blocks_page ON workspace_blocks(page_id)');
 
 const count = queryOne<{ c: number }>('SELECT COUNT(*) as c FROM metrics');
 if (count?.c === 0) {

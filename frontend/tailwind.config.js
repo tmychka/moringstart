@@ -3,11 +3,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: "#0a0f1e",
-        // The single source of truth for the app's accent. Swapping the scheme
-        // means changing these two values plus --carousel-dot in index.css.
-        accent: "#818cf8",
-        "accent-dim": "#4338ca",
+        ink: "#0b0c10",
+        // The accent for the handful of components pinned to the dark scheme
+        // rather than reading the active palette — see StepsTracker and
+        // ManageMetrics. Kept in step with Canvas in src/theme.ts.
+        accent: "#9fb0c4",
+        "accent-dim": "#566578",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
