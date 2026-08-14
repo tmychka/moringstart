@@ -8,9 +8,11 @@ import {
   type ReactNode,
 } from "react";
 import AppSidebar from "./AppSidebar";
+import type { QuickLink } from "./Sidebar";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import { readWords, writeWords } from "../englishWords";
-import type { Theme } from "../types";
+import { ENGLISH_SECTIONS } from "../englishSections";
+import type { MetricId, Theme } from "../types";
 
 const FLASH_MS = 1800;
 const VIEW_STORAGE_KEY = "english-view";
@@ -118,7 +120,20 @@ const speakTerm = (text: string, onDone: () => void) => {
   synth.speak(utterance);
 };
 
-export default function EnglishWords() {
+interface EnglishWordsProps {
+  /** The metric this page is behind, so its sections can be linked by URL. */
+  id: MetricId;
+}
+
+// Built from the section list so the sidebar can never drift from the routes.
+const sectionLinksFor = (id: MetricId): QuickLink[] =>
+  ENGLISH_SECTIONS.map((section) => ({
+    icon: section.icon,
+    label: section.label,
+    to: `/metric/${id}/${section.slug}`,
+  }));
+
+export default function EnglishWords({ id }: EnglishWordsProps) {
   const { t } = useTheme();
 
   const [words, setWords] = useState<Word[]>(loadWords);
@@ -361,7 +376,7 @@ export default function EnglishWords() {
     <div
       className={`relative flex h-screen w-screen overflow-hidden transition-colors duration-300 ${t.page}`}
     >
-      <AppSidebar variant="minimal" />
+      <AppSidebar variant="minimal" links={sectionLinksFor(id)} />
 
       <div className="h-full flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-24 pt-6 sm:px-8">

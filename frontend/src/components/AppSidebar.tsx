@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMetrics } from "../api";
 import ManageMetrics from "./ManageMetrics";
 import Sidebar, { type QuickLink } from "./Sidebar";
+import { DEFAULT_ENGLISH_SECTION } from "../englishSections";
 import { useTheme } from "../theme";
 import type { Metric } from "../types";
 
@@ -40,7 +41,7 @@ const quickLinksFor = (metrics: Metric[]): QuickLink[] => {
           {
             icon: "book" as const,
             label: "Vocabulary",
-            to: `/metric/${ENGLISH_METRIC_ID}`,
+            to: `/metric/${ENGLISH_METRIC_ID}/${DEFAULT_ENGLISH_SECTION.slug}`,
           },
         ]
       : []),
