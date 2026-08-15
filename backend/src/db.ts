@@ -30,25 +30,39 @@ export const required = <T>(row: T | undefined, what: string): T => {
   return row;
 };
 
+/**
+ * The smallest id no row in `table` is using. Inserting with it rather than letting
+ * AUTOINCREMENT count on means a delete frees its number again, instead of the ids
+ * climbing forever — a page id is the last segment of its workspace URL
+ * (`/developer/html-css/3`), and folders and blocks are numbered the same way so
+ * the whole workspace stays in small numbers.
+ *
+ * `table` is interpolated, so it must stay a literal from this codebase.
+ */
+export const nextFreeId = (table: string): number => {
+  const row = queryOne<{ id: number }>(`
+    SELECT CASE
+      WHEN NOT EXISTS (SELECT 1 FROM ${table} WHERE id = 1) THEN 1
+      ELSE (
+        SELECT MIN(id) + 1 FROM ${table} t
+        WHERE NOT EXISTS (SELECT 1 FROM ${table} x WHERE x.id = t.id + 1)
+      )
+    END AS id
+  `);
+  return row?.id ?? 1;
+};
+
+// One row per area of the app, and nothing else: every other table hangs off a
+// `metric_id`, and this is what says which ids exist. The frontend owns the
+// labels and the routes (frontend/src/areas.ts); the names here are seeded to
+// match so a fresh database is readable on its own.
 db.exec(`
   CREATE TABLE IF NOT EXISTS metrics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'generic',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `);
-
-// Migration: add `type` to metrics tables created before it existed, and backfill the
-// two special metrics from the original seed so existing dev DBs keep their behavior.
-const hasType = queryAll<{ name: string }>('PRAGMA table_info(metrics)').some(
-  (col) => col.name === 'type',
-);
-if (!hasType) {
-  db.exec("ALTER TABLE metrics ADD COLUMN type TEXT NOT NULL DEFAULT 'generic'");
-  db.exec("UPDATE metrics SET type = 'notebook' WHERE id = 1 AND type = 'generic'");
-  db.exec("UPDATE metrics SET type = 'steps' WHERE id = 4 AND type = 'generic'");
-}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS step_goals (
@@ -142,19 +156,59 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_folders_topic ON workspace_folders(metri
 db.exec('CREATE INDEX IF NOT EXISTS idx_pages_folder ON workspace_pages(folder_id)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_blocks_page ON workspace_blocks(page_id)');
 
+/** A table and column pointing at the ids being renumbered, to carry along. */
+type Reference = [table: string, column: string];
+
+/**
+ * Pulls a table's ids back to 1…n. Rows created before `nextFreeId` existed were
+ * numbered by AUTOINCREMENT, so a workspace that has seen a few deletions starts
+ * out somewhere in the 80s — this is the one-off catch-up, and every insert after
+ * it fills gaps on its own. Already compact tables fall straight through, so the
+ * pass costs one query per table on every later start.
+ *
+ * Renumbering in ascending order can't collide: the k-th smallest id is always
+ * ≥ k, so by the time k is handed out every row below it has already moved and
+ * every row above it is still higher. Foreign keys are deferred to the commit,
+ * which is what lets a parent and the rows pointing at it move one after the
+ * other rather than needing ON UPDATE CASCADE on every reference.
+ *
+ * `table` and the references are interpolated, so they must stay literals from
+ * this codebase.
+ */
+const compactIds = (table: string, refs: Reference[] = []): void => {
+  const ids = queryAll<{ id: number }>(`SELECT id FROM ${table} ORDER BY id ASC`);
+  if (ids.every(({ id }, i) => id === i + 1)) return;
+
+  db.exec('BEGIN');
+  db.exec('PRAGMA defer_foreign_keys = ON');
+  try {
+    ids.forEach(({ id }, i) => {
+      const next = i + 1;
+      if (id === next) return;
+      execute(`UPDATE ${table} SET id = ? WHERE id = ?`, next, id);
+      refs.forEach(([refTable, column]) =>
+        execute(`UPDATE ${refTable} SET ${column} = ? WHERE ${column} = ?`, next, id),
+      );
+    });
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+compactIds('workspace_folders', [['workspace_pages', 'folder_id']]);
+compactIds('workspace_pages', [['workspace_blocks', 'page_id']]);
+compactIds('workspace_blocks');
+
+// Seeded in the order the frontend's area list expects, so ids 1–4 line up with
+// the `metricId` each area carries.
 const count = queryOne<{ c: number }>('SELECT COUNT(*) as c FROM metrics');
 if (count?.c === 0) {
-  const insert = db.prepare('INSERT INTO metrics (name, type) VALUES (?, ?)');
-  const seed: Array<[string, string]> = [
-    ['Learn to code', 'notebook'],
-    ['Learn English', 'generic'],
-    ['Training', 'generic'],
-    ['Min 10,000 steps', 'steps'],
-    ['No content', 'generic'],
-    ['Not bad food', 'generic'],
-    ['Quality sleep', 'generic'],
-  ];
-  seed.forEach(([name, type]) => insert.run(name, type));
+  const insert = db.prepare('INSERT INTO metrics (name) VALUES (?)');
+  ['Learn to code', 'Learn English', 'Training', 'Min 10,000 steps'].forEach((name) =>
+    insert.run(name),
+  );
 }
 
 export default db;

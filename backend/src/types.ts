@@ -1,18 +1,8 @@
 // Shapes of the SQLite rows and of the JSON the API sends back. The frontend
 // mirrors the response half of this file in frontend/src/types.ts.
 
-export const METRIC_TYPES = ['generic', 'steps', 'notebook'] as const;
-export type MetricType = (typeof METRIC_TYPES)[number];
-
 export const ROADMAP_STATUSES = ['upcoming', 'in_progress', 'done'] as const;
 export type RoadmapStatus = (typeof ROADMAP_STATUSES)[number];
-
-export interface Metric {
-  id: number;
-  name: string;
-  type: MetricType;
-  created_at: string;
-}
 
 /** A note as stored: `links` is still the raw JSON text from the column. */
 export interface NoteRow {
@@ -109,9 +99,6 @@ export interface Block extends Omit<BlockRow, 'content'> {
 export interface FolderWithPages extends Folder {
   pages: Page[];
 }
-
-export const isMetricType = (value: unknown): value is MetricType =>
-  typeof value === 'string' && (METRIC_TYPES as readonly string[]).includes(value);
 
 export const isRoadmapStatus = (value: unknown): value is RoadmapStatus =>
   typeof value === 'string' && (ROADMAP_STATUSES as readonly string[]).includes(value);

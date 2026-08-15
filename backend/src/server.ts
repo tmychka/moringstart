@@ -1,17 +1,23 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import type { SQLInputValue } from 'node:sqlite';
-import db, { execute, insertedId, queryAll, queryOne, required, rowCount } from './db';
+import {
+  execute,
+  insertedId,
+  nextFreeId,
+  queryAll,
+  queryOne,
+  required,
+  rowCount,
+} from './db';
 import {
   isBlockType,
-  isMetricType,
   isRoadmapStatus,
   type Block,
   type BlockRow,
   type ErrorBody,
   type Folder,
   type FolderWithPages,
-  type Metric,
   type Milestone,
   type Note,
   type NoteRow,
@@ -37,50 +43,14 @@ const trimmed = (value: unknown): string | null => {
   return text.length > 0 ? text : null;
 };
 
+/**
+ * Every route below is scoped to one metric row — the id an area's data has
+ * always been filed under. The rows are seeded and fixed (the app's areas are
+ * part of the app, not something a client adds), so this guard is all that is
+ * left of metric management: it rejects writes aimed at an id that isn't one.
+ */
 const metricExists = (id: number): boolean =>
   !!queryOne<{ 1: number }>('SELECT 1 FROM metrics WHERE id = ?', id);
-
-app.get('/metrics', (_req, res: Response<Metric[]>) => {
-  res.json(queryAll<Metric>('SELECT * FROM metrics ORDER BY created_at ASC'));
-});
-
-app.post('/metrics', (req, res: Response<Metric | ErrorBody>) => {
-  const { name, type } = bodyOf(req);
-  const cleanName = trimmed(name);
-  if (!cleanName) return res.status(400).json({ error: 'name required' });
-  const t = isMetricType(type) ? type : 'generic';
-  const info = execute('INSERT INTO metrics (name, type) VALUES (?, ?)', cleanName, t);
-  const row = queryOne<Metric>('SELECT * FROM metrics WHERE id = ?', insertedId(info));
-  return res.status(201).json(required(row, 'metric'));
-});
-
-app.put('/metrics/:id', (req, res: Response<Metric | ErrorBody>) => {
-  const cleanName = trimmed(bodyOf(req).name);
-  if (!cleanName) return res.status(400).json({ error: 'name required' });
-  const info = execute('UPDATE metrics SET name = ? WHERE id = ?', cleanName, req.params.id);
-  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
-  const row = queryOne<Metric>('SELECT * FROM metrics WHERE id = ?', req.params.id);
-  return res.json(required(row, 'metric'));
-});
-
-app.delete('/metrics/:id', (req, res: Response<ErrorBody | void>) => {
-  const id = Number(req.params.id);
-  // Remove the metric and all of its child rows atomically so no orphans are left behind.
-  db.exec('BEGIN');
-  try {
-    execute('DELETE FROM step_entries WHERE metric_id = ?', id);
-    execute('DELETE FROM step_goals WHERE metric_id = ?', id);
-    execute('DELETE FROM notes WHERE metric_id = ?', id);
-    execute('DELETE FROM roadmap_milestones WHERE metric_id = ?', id);
-    const info = execute('DELETE FROM metrics WHERE id = ?', id);
-    db.exec('COMMIT');
-    if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
-    return res.status(204).end();
-  } catch {
-    db.exec('ROLLBACK');
-    return res.status(500).json({ error: 'delete failed' });
-  }
-});
 
 // --- Steps tracker ---
 
@@ -356,7 +326,8 @@ app.post('/metrics/:id/workspace/:topic/folders', (req, res: Response<Folder | E
   const { topic } = req.params;
   const name = trimmed(bodyOf(req).name) ?? 'New folder';
   const info = execute(
-    'INSERT INTO workspace_folders (metric_id, topic, name, position) VALUES (?, ?, ?, ?)',
+    'INSERT INTO workspace_folders (id, metric_id, topic, name, position) VALUES (?, ?, ?, ?, ?)',
+    nextFreeId('workspace_folders'),
     metricId,
     topic,
     name,
@@ -410,8 +381,11 @@ app.post('/workspace/folders/:folderId/pages', (req, res: Response<Page | ErrorB
   const folder = queryOne<Folder>('SELECT * FROM workspace_folders WHERE id = ?', folderId);
   if (!folder) return res.status(404).json({ error: 'folder not found' });
   const { title, icon } = bodyOf(req);
+  // The id is chosen rather than counted on: it ends up in the URL, so a deleted
+  // page gives its number back instead of leaving the next one higher again.
   const info = execute(
-    'INSERT INTO workspace_pages (folder_id, title, icon, position) VALUES (?, ?, ?, ?)',
+    'INSERT INTO workspace_pages (id, folder_id, title, icon, position) VALUES (?, ?, ?, ?, ?)',
+    nextFreeId('workspace_pages'),
     folderId,
     trimmed(title) ?? 'Untitled',
     typeof icon === 'string' ? icon : '',
@@ -484,7 +458,8 @@ app.post('/workspace/pages/:pageId/blocks', (req, res: Response<Block | ErrorBod
   const { type, content } = bodyOf(req);
   if (!isBlockType(type)) return res.status(400).json({ error: 'invalid block type' });
   const info = execute(
-    'INSERT INTO workspace_blocks (page_id, type, content, position) VALUES (?, ?, ?, ?)',
+    'INSERT INTO workspace_blocks (id, page_id, type, content, position) VALUES (?, ?, ?, ?, ?)',
+    nextFreeId('workspace_blocks'),
     pageId,
     type,
     JSON.stringify(content && typeof content === 'object' ? content : {}),

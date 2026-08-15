@@ -4,9 +4,7 @@ import type {
   BlockType,
   Folder,
   FolderWithPages,
-  Metric,
   MetricId,
-  MetricType,
   Milestone,
   MilestoneCreate,
   MilestoneUpdate,
@@ -56,13 +54,6 @@ const put = <T>(url: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 const del = (url: string) => request<null>(url, { method: "DELETE" });
-
-export const getMetrics = () => request<Metric[]>(BASE);
-export const createMetric = (name: string, type?: MetricType) =>
-  post<Metric>(BASE, { name, type });
-export const updateMetric = (id: MetricId, name: string) =>
-  put<Metric>(`${BASE}/${id}`, { name });
-export const deleteMetric = (id: MetricId) => del(`${BASE}/${id}`);
 
 export const getSteps = (id: MetricId) =>
   request<StepsPayload>(`${BASE}/${id}/steps`);
