@@ -1,22 +1,12 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import HumanFigure from "../components/HumanFigure";
-import MetricsOverlay from "../components/MetricsOverlay";
-import ManageMetrics from "../components/ManageMetrics";
-import { getMetrics } from "../api";
+import AreasOverlay from "../components/AreasOverlay";
 
 export default function Home() {
-  const [showManage, setShowManage] = useState(false);
-  const { data: metrics = [] } = useQuery({
-    queryKey: ["metrics"],
-    queryFn: getMetrics,
-  });
-
   return (
     <div className="relative w-screen h-screen bg-white overflow-hidden">
       <HumanFigure />
 
-      <MetricsOverlay metrics={metrics} />
+      <AreasOverlay />
 
       {/* App title */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-20">
@@ -24,17 +14,6 @@ export default function Home() {
           Morning Start
         </p>
       </div>
-
-      {/* Manage metrics button */}
-      <button
-        onClick={() => setShowManage(true)}
-        className="absolute bottom-7 right-7 z-20 bg-transparent border border-[#566578] text-[#566578] rounded-lg py-[7px] px-4 text-[0.65rem] tracking-[0.18em] uppercase cursor-pointer font-normal font-[inherit] transition-colors duration-200 hover:text-[#414d5d] hover:border-[#414d5d]"
-      >
-        Metrics
-      </button>
-
-      {/* Manage modal */}
-      {showManage && <ManageMetrics onClose={() => setShowManage(false)} />}
     </div>
   );
 }

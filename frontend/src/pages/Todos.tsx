@@ -1,20 +1,12 @@
-import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import AppSidebar from "../components/AppSidebar";
 import SuperTodo from "../components/SuperTodo";
 import { labelClass, numeralClass, useTheme } from "../theme";
-import { useBackGesture } from "../useBackGesture";
 import { useTodos } from "../todos";
 
 export default function Todos() {
-  const navigate = useNavigate();
   const { t } = useTheme();
   const todos = useTodos();
   const open = todos.filter((todo) => !todo.done).length;
-
-  // Same as every other page off the carousel: either arrow key or a sideways
-  // trackpad swipe goes back to the dashboard.
-  useBackGesture(useCallback(() => navigate("/"), [navigate]));
 
   // A route of its own rather than a carousel slide, so it sizes itself to the
   // viewport and scrolls inside — `body` has overflow hidden.

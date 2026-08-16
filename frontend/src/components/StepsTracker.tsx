@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSteps, saveGoal, saveSteps } from "../api";
+import { STEPS } from "../areas";
 import { fmt, toKey } from "../stepsUtil";
-import type { MetricId, StepsPayload } from "../types";
+import type { StepsPayload } from "../types";
 
 const CHIPS = [5, 6, 7, 8, 9, 10, 12, 15];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -51,13 +52,12 @@ interface EditingDay {
   label: string;
 }
 
-interface StepsTrackerProps {
-  id: MetricId;
-}
-
-export default function StepsTracker({ id }: StepsTrackerProps) {
+export default function StepsTracker() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Entries and the goal are still filed under the metric row this area has
+  // always used; only the URL above it changed.
+  const id = STEPS.metricId;
   const { data } = useQuery({
     queryKey: ["steps", id],
     queryFn: () => getSteps(id),

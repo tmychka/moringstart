@@ -7,23 +7,16 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { getMetrics, getNotes, getRoadmap, getSteps, saveSteps } from "../api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getNotes, getRoadmap, getSteps, saveSteps } from "../api";
 import AppSidebar from "./AppSidebar";
 import NextUp from "./NextUp";
+import { DEVELOPER, ENGLISH, STEPS } from "../areas";
 import { fmt, toKey } from "../stepsUtil";
 import { summarize, timeAgo, type DaySummary } from "../dashboardStats";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import { readWords } from "../englishWords";
-import type { MetricId, Milestone, Note, StepsPayload, Theme } from "../types";
-
-// Mirrors MetricPage: "Learn English" is a generic metric routed by id.
-const ENGLISH_METRIC_ID = "2";
+import type { Milestone, StepsPayload, Theme } from "../types";
 
 const CHART_DAYS = 7;
 const WINDOW_DAYS = 30;
@@ -92,49 +85,22 @@ export default function Dashboard() {
   const [waves, setWaves] = useState<Wave[]>([]);
   const waveId = useRef(0);
 
-  const { data: metrics = [] } = useQuery({
-    queryKey: ["metrics"],
-    queryFn: getMetrics,
+  // Query keys match the area pages, so the cache is shared both ways.
+  const { data: steps } = useQuery({
+    queryKey: ["steps", STEPS.metricId],
+    queryFn: () => getSteps(STEPS.metricId),
+  });
+  const { data: notes } = useQuery({
+    queryKey: ["notes", DEVELOPER.metricId],
+    queryFn: () => getNotes(DEVELOPER.metricId),
+  });
+  const { data: milestones } = useQuery({
+    queryKey: ["roadmap", DEVELOPER.metricId],
+    queryFn: () => getRoadmap(DEVELOPER.metricId),
   });
 
-  const stepsMetrics = metrics.filter((m) => m.type === "steps");
-  const notebookMetrics = metrics.filter((m) => m.type === "notebook");
-
-  // Query keys match the per-metric pages, so the cache is shared both ways.
-  const stepsQueries = useQueries({
-    queries: stepsMetrics.map((m) => ({
-      queryKey: ["steps", String(m.id)],
-      queryFn: () => getSteps(m.id),
-    })),
-  });
-  const notesQueries = useQueries({
-    queries: notebookMetrics.map((m) => ({
-      queryKey: ["notes", String(m.id)],
-      queryFn: () => getNotes(m.id),
-    })),
-  });
-  const roadmapQueries = useQueries({
-    queries: notebookMetrics.map((m) => ({
-      queryKey: ["roadmap", String(m.id)],
-      queryFn: () => getRoadmap(m.id),
-    })),
-  });
-
-  const stepsByMetric = new Map<string, StepsPayload | undefined>(
-    stepsMetrics.map((m, i) => [String(m.id), stepsQueries[i]?.data])
-  );
-  const notesByMetric = new Map<string, Note[]>(
-    notebookMetrics.map((m, i) => [String(m.id), notesQueries[i]?.data ?? []])
-  );
-  const roadmapByMetric = new Map<string, Milestone[]>(
-    notebookMetrics.map((m, i) => [String(m.id), roadmapQueries[i]?.data ?? []])
-  );
-
-  // The dashboard headlines a single steps tracker — the first one defined.
-  const primary = stepsMetrics[0];
-  const primarySteps = primary ? stepsByMetric.get(String(primary.id)) : null;
-  const goal = typeof primarySteps?.goal === "number" ? primarySteps.goal : 0;
-  const entries = useMemo(() => primarySteps?.entries ?? {}, [primarySteps]);
+  const goal = typeof steps?.goal === "number" ? steps.goal : 0;
+  const entries = useMemo(() => steps?.entries ?? {}, [steps]);
 
   const todayKey = toKey(now);
   const todaySteps = entries[todayKey] ?? 0;
@@ -148,28 +114,21 @@ export default function Dashboard() {
   );
   const week = stats.window.slice(-CHART_DAYS);
 
-  const notebook = notebookMetrics[0];
-  const milestones = notebook
-    ? roadmapByMetric.get(String(notebook.id))
-    : undefined;
-  const notes = notebook ? notesByMetric.get(String(notebook.id)) : undefined;
-
   // Today's number doubles as the input: click to edit, Enter to save. Writes go
-  // to the same cache entry the metric page reads, painted optimistically so the
+  // to the same cache entry the steps page reads, painted optimistically so the
   // ring and the week below react on the keystroke rather than on the response.
   const saveMut = useMutation({
-    mutationFn: (vars: { id: MetricId; date: string; steps: number }) =>
-      saveSteps(vars.id, vars.date, vars.steps),
-    onError: (_error, vars) =>
-      queryClient.invalidateQueries({ queryKey: ["steps", String(vars.id)] }),
+    mutationFn: (vars: { date: string; steps: number }) =>
+      saveSteps(STEPS.metricId, vars.date, vars.steps),
+    onError: () =>
+      queryClient.invalidateQueries({ queryKey: ["steps", STEPS.metricId] }),
   });
 
   const commitSteps = (next: number) => {
-    if (!primary) return;
     const value = Math.max(0, Math.round(next) || 0);
 
     queryClient.setQueryData<StepsPayload>(
-      ["steps", String(primary.id)],
+      ["steps", STEPS.metricId],
       (prev) => {
         const base = prev ?? { goal, entries: {} };
         const nextEntries = { ...base.entries };
@@ -178,11 +137,10 @@ export default function Dashboard() {
         return { ...base, entries: nextEntries };
       }
     );
-    saveMut.mutate({ id: primary.id, date: todayKey, steps: value });
+    saveMut.mutate({ date: todayKey, steps: value });
   };
 
   const startEditing = () => {
-    if (!primary) return;
     setDraft(todaySteps ? String(todaySteps) : "");
     setEditing(true);
   };
@@ -200,7 +158,7 @@ export default function Dashboard() {
   // Double-clicking the card is the "done for today" gesture: the goal lands in
   // one go and a wave rolls out from wherever the pointer was.
   const completeGoal = (event: MouseEvent<HTMLElement>) => {
-    if (!primary || goal <= 0 || editing) return;
+    if (goal <= 0 || editing) return;
     const box = event.currentTarget.getBoundingClientRect();
     setWaves((prev) => [
       ...prev,
@@ -213,10 +171,8 @@ export default function Dashboard() {
     if (todaySteps !== goal) commitSteps(goal);
   };
 
-  const hasSteps = Boolean(primary);
-  const todayHint = !hasSteps
-    ? "No steps tracker yet"
-    : todaySteps === 0
+  const todayHint =
+    todaySteps === 0
       ? "Nothing logged yet today"
       : todaySteps >= goal
         ? "Goal reached"
@@ -271,7 +227,7 @@ export default function Dashboard() {
               ))}
 
               <div className="flex flex-wrap items-center gap-5">
-                <ProgressRing progress={progress} muted={!hasSteps} t={t} />
+                <ProgressRing progress={progress} t={t} />
                 <div className="min-w-0">
                   <p className={labelClass(t)}>Today</p>
                   {/* Both states share one fixed-height slot and identical type
@@ -300,25 +256,20 @@ export default function Dashboard() {
                     ) : (
                       <button
                         type="button"
-                        disabled={!hasSteps}
                         onClick={startEditing}
                         title="Click to edit · double-click the card to hit the goal"
-                        className={`${bigNumberClass} text-left transition-opacity ${
-                          hasSteps ? "cursor-text hover:opacity-60" : ""
-                        }`}
+                        className={`${bigNumberClass} cursor-text text-left transition-opacity hover:opacity-60`}
                       >
-                        {hasSteps ? fmt(todaySteps) : "—"}
+                        {fmt(todaySteps)}
                       </button>
                     )}
                   </div>
                   <p className={`m-0 mt-2 truncate text-[0.78rem] ${t.body}`}>
                     {editing ? "Enter to save · Esc to cancel" : todayHint}
                   </p>
-                  {hasSteps && (
-                    <p className={`m-0 mt-1 text-[0.7rem] ${t.muted}`}>
-                      Goal {fmt(goal)}
-                    </p>
-                  )}
+                  <p className={`m-0 mt-1 text-[0.7rem] ${t.muted}`}>
+                    Goal {fmt(goal)}
+                  </p>
                 </div>
 
                 {/* Sits beside the ring on wide cards, drops to its own line
@@ -356,9 +307,7 @@ export default function Dashboard() {
               t={t}
               className="col-span-12 md:col-span-4"
               milestones={milestones}
-              onOpen={
-                notebook ? () => navigate(`/metric/${notebook.id}`) : undefined
-              }
+              onOpen={() => navigate(`/${DEVELOPER.slug}`)}
             />
             <Stat
               t={t}
@@ -373,7 +322,7 @@ export default function Dashboard() {
                       .join(" · ")
                   : "No words saved"
               }
-              onClick={() => navigate(`/metric/${ENGLISH_METRIC_ID}`)}
+              onClick={() => navigate(`/${ENGLISH.slug}`)}
             />
             <Stat
               t={t}
@@ -385,9 +334,7 @@ export default function Dashboard() {
                   ? `Updated ${timeAgo(notes[0].updated_at, now)}`
                   : "Nothing written yet"
               }
-              onClick={
-                notebook ? () => navigate(`/metric/${notebook.id}`) : undefined
-              }
+              onClick={() => navigate(`/${DEVELOPER.slug}`)}
             />
           </div>
         </div>
@@ -485,15 +432,7 @@ function Stat({ label, value, hint, className = "", onClick, t }: StatProps) {
   );
 }
 
-function ProgressRing({
-  progress,
-  muted,
-  t,
-}: {
-  progress: number;
-  muted: boolean;
-  t: Theme;
-}) {
+function ProgressRing({ progress, t }: { progress: number; t: Theme }) {
   return (
     <div className="relative shrink-0">
       <svg viewBox="0 0 120 120" className="h-[98px] w-[98px] -rotate-90">
@@ -505,27 +444,25 @@ function ProgressRing({
           stroke={t.track}
           strokeWidth="6"
         />
-        {!muted && (
-          <circle
-            cx="60"
-            cy="60"
-            r={RING_RADIUS}
-            fill="none"
-            stroke={t.accent}
-            strokeWidth="6"
-            strokeLinecap="round"
-            strokeDasharray={RING_LENGTH}
-            strokeDashoffset={RING_LENGTH * (1 - progress)}
-            style={{
-              transition: "stroke-dashoffset 700ms cubic-bezier(.22,.61,.36,1)",
-            }}
-          />
-        )}
+        <circle
+          cx="60"
+          cy="60"
+          r={RING_RADIUS}
+          fill="none"
+          stroke={t.accent}
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={RING_LENGTH}
+          strokeDashoffset={RING_LENGTH * (1 - progress)}
+          style={{
+            transition: "stroke-dashoffset 700ms cubic-bezier(.22,.61,.36,1)",
+          }}
+        />
       </svg>
       <span
         className={`absolute inset-0 grid place-items-center text-[1.05rem] ${numeralClass}`}
       >
-        {muted ? "—" : `${Math.round(progress * 100)}%`}
+        {`${Math.round(progress * 100)}%`}
       </span>
     </div>
   );

@@ -6,8 +6,9 @@ import AppSidebar from "./AppSidebar";
 import RoadmapTimeline from "./RoadmapTimeline";
 import Workspace from "./workspace/Workspace";
 import { cardClass, useTheme } from "../theme";
+import { DEVELOPER } from "../areas";
 import { DEV_TOPICS, type DevTopic } from "../developerTopics";
-import type { QuickLink } from "./Sidebar";
+import type { SidebarLink } from "./Sidebar";
 import type { MetricId, Note, NoteUpdate, Theme } from "../types";
 
 const textareaClass = (t: Theme) =>
@@ -38,7 +39,6 @@ interface ActiveWord {
 }
 
 interface DeveloperProps {
-  id: MetricId;
   /** The subject being read; without one the page is the hub over all of them. */
   topic?: DevTopic;
   /** Page id from the URL when a subject's workspace has one open. */
@@ -46,21 +46,23 @@ interface DeveloperProps {
 }
 
 // Built once from the topic list so the sidebar can never drift from the routes.
-const topicLinksFor = (id: MetricId): QuickLink[] =>
-  DEV_TOPICS.map((topic) => ({
-    icon: "code" as const,
-    label: topic.label,
-    to: `/metric/${id}/${topic.slug}`,
-  }));
+const TOPIC_LINKS: SidebarLink[] = DEV_TOPICS.map((topic) => ({
+  icon: "code" as const,
+  label: topic.label,
+  to: `/${DEVELOPER.slug}/${topic.slug}`,
+}));
 
 /**
  * Two pages behind one component. Without a subject this is the hub — the
  * roadmap and the running note feed. With one it is that subject's workspace,
  * which owns its own two-pane layout and scrolling.
  */
-export default function Developer({ id, topic, pageId }: DeveloperProps) {
+export default function Developer({ topic, pageId }: DeveloperProps) {
   const { t } = useTheme();
   const navigate = useNavigate();
+  // Notes, roadmap and workspaces are still filed under the metric row this
+  // area has always used; only the URL above it changed.
+  const id = DEVELOPER.metricId;
 
   return (
     // The sidebar owns the way back, so the shell is the one every other page
@@ -68,7 +70,7 @@ export default function Developer({ id, topic, pageId }: DeveloperProps) {
     <div
       className={`relative flex h-screen w-screen overflow-hidden font-system transition-colors duration-300 ${t.page}`}
     >
-      <AppSidebar variant="minimal" links={topicLinksFor(id)} />
+      <AppSidebar variant="minimal" links={TOPIC_LINKS} />
 
       {topic ? (
         <Workspace
@@ -79,8 +81,8 @@ export default function Developer({ id, topic, pageId }: DeveloperProps) {
           onSelectPage={(next) =>
             navigate(
               next === null
-                ? `/metric/${id}/${topic.slug}`
-                : `/metric/${id}/${topic.slug}/${next}`,
+                ? `/${DEVELOPER.slug}/${topic.slug}`
+                : `/${DEVELOPER.slug}/${topic.slug}/${next}`,
               { replace: next === null }
             )
           }

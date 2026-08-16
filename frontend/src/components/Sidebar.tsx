@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { treatmentOptions } from "../theme";
-import type { Metric, Scheme, Theme, Treatment } from "../types";
+import type { Scheme, Theme, Treatment } from "../types";
 
 const COLLAPSED_STORAGE_KEY = "dashboard-sidebar-collapsed";
 
@@ -20,22 +20,13 @@ const PANEL_WIDTH = "w-[236px]";
 
 // 24×24 stroke icons drawn inline, so the sidebar needs no icon dependency.
 const ICONS = {
-  grid: (
-    <>
-      <rect x="3.6" y="3.6" width="7" height="7" rx="1.8" />
-      <rect x="13.4" y="3.6" width="7" height="7" rx="1.8" />
-      <rect x="3.6" y="13.4" width="7" height="7" rx="1.8" />
-      <rect x="13.4" y="13.4" width="7" height="7" rx="1.8" />
-    </>
-  ),
-  layers: (
-    <>
-      <path d="M12 3.6 3.8 8.2 12 12.8l8.2-4.6z" />
-      <path d="M3.8 12.4 12 17l8.2-4.6" />
-      <path d="M3.8 16.4 12 21l8.2-4.6" />
-    </>
-  ),
   activity: <path d="M3.4 12h3.9l2.5-6.4 4.2 12.8 2.5-6.4h4.1" />,
+  dumbbell: (
+    <>
+      <path d="M6.9 8.6v6.8M4.3 10.4v3.2M17.1 8.6v6.8M19.7 10.4v3.2" />
+      <path d="M6.9 12h10.2" />
+    </>
+  ),
   checklist: (
     <>
       <path d="M3.8 7.4 5.7 9.3l3.2-3.4" />
@@ -70,8 +61,6 @@ const ICONS = {
     </>
   ),
   code: <path d="m9.2 8.4-3.8 3.6 3.8 3.6M14.8 8.4l3.8 3.6-3.8 3.6" />,
-  plus: <path d="M12 6.6v10.8M6.6 12h10.8" />,
-  chevron: <path d="m8.6 10.4 3.4 3.4 3.4-3.4" />,
   panel: (
     <>
       <rect x="3.4" y="4.4" width="17.2" height="15.2" rx="3" />
@@ -82,8 +71,8 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-/** A shortcut rendered under the metric list. */
-export interface QuickLink {
+/** One entry in the sidebar's nav list. */
+export interface SidebarLink {
   icon: IconName;
   label: string;
   to: string;
@@ -145,16 +134,14 @@ interface SidebarProps {
   scheme: Scheme;
   onTreatment: (treatment: Treatment) => void;
   onScheme: (scheme: Scheme) => void;
-  metrics: Metric[];
-  onOpenMetric: (id: number) => void;
-  onManageMetrics: () => void;
   onNavigate: (to: string) => void;
   /** Route the sidebar is being rendered on, so it can mark its own entry. */
   activePath?: string;
-  quickLinks?: QuickLink[];
+  links?: SidebarLink[];
   /**
-   * `minimal` keeps only the brand row, Dashboard and the theme switch, for
-   * pages that want a way back and nothing competing with their own content.
+   * `minimal` keeps only the brand row, the links it was given and the theme
+   * switch, for pages that want a way back and nothing competing with their
+   * own content.
    */
   variant?: "full" | "minimal";
 }
@@ -165,16 +152,12 @@ export default function Sidebar({
   scheme,
   onTreatment,
   onScheme,
-  metrics,
-  onOpenMetric,
-  onManageMetrics,
   onNavigate,
   activePath = "/",
-  quickLinks = [],
+  links = [],
   variant = "full",
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [metricsOpen, setMetricsOpen] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const [backgroundsOpen, setBackgroundsOpen] = useState(false);
 
@@ -229,17 +212,31 @@ export default function Sidebar({
             : "relative"
         }`}
       >
+        {/* The brand is also the way back: every page reaches the dashboard by
+            clicking it, so no entry in the nav has to carry that job. Collapsed,
+            it stacks above the toggle rather than leaving the rail without one. */}
         <div
-          className={`flex items-center py-5 ${expanded ? "gap-2.5 px-4" : "justify-center px-0"}`}
+          className={`flex py-5 ${expanded ? "items-center gap-2.5 px-4" : "flex-col items-center gap-1.5 px-0"}`}
         >
-          {expanded && (
-            <>
-              <BrandMark t={t} />
-              <span className="flex-1 truncate text-[0.92rem] font-semibold tracking-[-0.01em]">
+          <button
+            type="button"
+            onClick={() => onNavigate("/")}
+            title="Dashboard"
+            aria-label="Dashboard"
+            aria-current={activePath === "/" ? "page" : undefined}
+            className={`flex min-w-0 cursor-pointer items-center rounded-xl border-none bg-transparent transition-colors ${t.rowHover} ${
+              expanded
+                ? "flex-1 gap-2.5 px-2 py-1.5"
+                : "h-9 w-9 justify-center p-0"
+            }`}
+          >
+            <BrandMark t={t} />
+            {expanded && (
+              <span className="min-w-0 flex-1 truncate text-left text-[0.92rem] font-semibold tracking-[-0.01em]">
                 Morning Start
               </span>
-            </>
-          )}
+            )}
+          </button>
           <IconButton
             t={t}
             icon="panel"
@@ -249,79 +246,9 @@ export default function Sidebar({
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-2">
-          <NavItem
-            t={t}
-            icon="grid"
-            label="Dashboard"
-            collapsed={collapsed}
-            active={activePath === "/"}
-            onClick={() => onNavigate("/")}
-          />
-
-          {full && (
-            <NavItem
-              t={t}
-              icon="checklist"
-              label="Todos"
-              collapsed={collapsed}
-              active={activePath === "/todos"}
-              onClick={() => onNavigate("/todos")}
-            />
-          )}
-
-          {full && (
-            <NavItem
-              t={t}
-              icon="layers"
-              label="Metrics"
-              collapsed={collapsed}
-              expandedGroup={expanded && metricsOpen}
-              onClick={() =>
-                collapsed
-                  ? setCollapsed(false)
-                  : setMetricsOpen((open) => !open)
-              }
-              trailing={
-                <Badge
-                  t={t}
-                  icon="plus"
-                  label="Add metric"
-                  onClick={onManageMetrics}
-                />
-              }
-            />
-          )}
-
-          {full && expanded && metricsOpen && (
-            // Capped so a long metric list scrolls on its own instead of
-            // pushing the quick links out of the sidebar.
-            <ul className="m-0 mb-1 max-h-[168px] list-none overflow-y-auto p-0 pl-[26px]">
-              {metrics.map((metric) => (
-                <li key={metric.id}>
-                  <button
-                    type="button"
-                    onClick={() => onOpenMetric(metric.id)}
-                    className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-none bg-transparent px-2.5 py-1.5 text-left text-[0.78rem] transition-colors ${t.sidebarItem}`}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: t.accentSoft }}
-                    />
-                    <span className="truncate">{metric.name}</span>
-                  </button>
-                </li>
-              ))}
-              {metrics.length === 0 && (
-                <p className={`m-0 px-2.5 py-1.5 text-[0.74rem] ${t.muted}`}>
-                  No metrics yet
-                </p>
-              )}
-            </ul>
-          )}
-
-          {/* Rendered in both variants: full mode fills these from the metric
-              list, minimal mode from whatever the page handed down. */}
-          {quickLinks.map((link) => (
+          {/* One flat list either way: on a full sidebar these are the app's
+              areas, on a minimal one the sections of the page showing it. */}
+          {links.map((link) => (
             <NavItem
               key={link.label}
               t={t}
@@ -340,11 +267,13 @@ export default function Sidebar({
               className={`m-0 mb-2 list-none rounded-xl p-3 text-[0.72rem] leading-relaxed ${t.sidebarCard} ${t.body}`}
             >
               <li>← → or swipe switches dashboard and body map.</li>
-              <li className="mt-1.5">Pick a metric to open its own page.</li>
+              <li className="mt-1.5">Pick an area to open its own page.</li>
               <li className="mt-1.5">
-                ← → or swipe again goes back from a metric page.
+                ← → or swipe again goes back from an area page.
               </li>
-              <li className="mt-1.5">+ next to Metrics adds or removes one.</li>
+              <li className="mt-1.5">
+                Clicking Morning Start returns to the dashboard.
+              </li>
             </ul>
           )}
           {full && (
@@ -465,61 +394,33 @@ interface NavItemProps {
   label: string;
   collapsed: boolean;
   active?: boolean;
-  onClick?: () => void;
-  trailing?: ReactNode;
-  expandedGroup?: boolean;
+  onClick: () => void;
 }
 
-function NavItem({
-  t,
-  icon,
-  label,
-  collapsed,
-  active,
-  onClick,
-  trailing,
-  expandedGroup,
-}: NavItemProps) {
-  const interactive = Boolean(onClick);
-
+function NavItem({ t, icon, label, collapsed, active, onClick }: NavItemProps) {
   return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={!interactive}
-        title={collapsed ? label : undefined}
-        aria-label={collapsed ? label : undefined}
-        aria-expanded={expandedGroup === undefined ? undefined : expandedGroup}
-        aria-current={active ? "page" : undefined}
-        // min-w-0 so a long label ellipsises instead of pushing past the panel:
-        // a flex item won't shrink below its content without it.
-        className={`flex min-w-0 flex-1 items-center rounded-xl border-none bg-transparent text-left transition-colors ${
-          collapsed ? "h-10 justify-center px-0" : "gap-3 px-3 py-2.5"
-        } ${active ? t.sidebarItemActive : t.sidebarItem} ${
-          interactive ? "cursor-pointer" : "cursor-default"
-        }`}
-      >
-        <Icon name={icon} />
-        {!collapsed && (
-          <span
-            title={label}
-            className={`min-w-0 flex-1 truncate text-[0.83rem] ${active ? "font-medium" : ""}`}
-          >
-            {label}
-          </span>
-        )}
-        {!collapsed && expandedGroup !== undefined && (
-          <Icon
-            name="chevron"
-            className={`h-4 w-4 transition-transform duration-200 ${
-              expandedGroup ? "" : "-rotate-90"
-            }`}
-          />
-        )}
-      </button>
-      {!collapsed && trailing}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+      aria-current={active ? "page" : undefined}
+      // min-w-0 so a long label ellipsises instead of pushing past the panel:
+      // a flex item won't shrink below its content without it.
+      className={`flex w-full min-w-0 cursor-pointer items-center rounded-xl border-none bg-transparent text-left transition-colors ${
+        collapsed ? "h-10 justify-center px-0" : "gap-3 px-3 py-2.5"
+      } ${active ? t.sidebarItemActive : t.sidebarItem}`}
+    >
+      <Icon name={icon} />
+      {!collapsed && (
+        <span
+          title={label}
+          className={`min-w-0 flex-1 truncate text-[0.83rem] ${active ? "font-medium" : ""}`}
+        >
+          {label}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -528,20 +429,6 @@ interface ButtonProps {
   icon: IconName;
   label: string;
   onClick?: () => void;
-}
-
-function Badge({ t, icon, label, onClick }: ButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={`grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-full border-none p-0 transition-colors ${t.sidebarBadge}`}
-    >
-      <Icon name={icon} className="h-3.5 w-3.5" />
-    </button>
-  );
 }
 
 function IconButton({ t, icon, label, onClick }: ButtonProps) {
