@@ -1,6 +1,6 @@
 /**
  * The subjects the Developer page is split into. The slug is both the last URL
- * segment (`/metric/1/react`) and the value stored on a note's `topic`, so this
+ * segment (`/developer/react`) and the value stored on a note's `topic`, so this
  * list is the only place a subject is spelled out.
  */
 export interface DevTopic {

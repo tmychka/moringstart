@@ -1,11 +1,10 @@
 import { Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import AreaPage from "./pages/AreaPage";
 import Carousel from "./components/Carousel";
 import Dashboard from "./components/Dashboard";
 import Home from "./pages/Home";
-import MetricPage from "./pages/MetricPage";
-import Todos from "./pages/Todos";
 import { useTheme } from "./theme";
 
 export default function App() {
@@ -26,11 +25,12 @@ export default function App() {
             </Carousel>
           }
         />
-        <Route path="/todos" element={<Todos />} />
-        <Route path="/metric/:id" element={<MetricPage />} />
-        {/* Same page, narrowed to one Developer subject, then to one of its pages. */}
-        <Route path="/metric/:id/:topic" element={<MetricPage />} />
-        <Route path="/metric/:id/:topic/:pageId" element={<MetricPage />} />
+        {/* Every area is one slug off the root — /developer, /english, /steps.
+            The static "/" above still wins over the parameter. Deeper segments
+            narrow an area to one of its sections, then to a page inside it. */}
+        <Route path="/:area" element={<AreaPage />} />
+        <Route path="/:area/:section" element={<AreaPage />} />
+        <Route path="/:area/:section/:pageId" element={<AreaPage />} />
       </Routes>
       <ToastContainer
         position="bottom-right"
