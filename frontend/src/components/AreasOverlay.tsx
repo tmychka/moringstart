@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import StepsQuickPanel from "./StepsQuickPanel";
-import type { Metric } from "../types";
+import { AREAS, STEPS, type Area } from "../areas";
 
 // Angles: 0°=right, 90°=up(CSS top), 180°=left, 270°=bottom
-// Arcs are defined as angular ranges so any number of metrics can be laid out.
+// Arcs are defined as angular ranges so any number of areas can be laid out.
 type AngleRange = [start: number, end: number];
 
 const LEFT_RANGE: AngleRange = [140, 210]; // top-left → bottom-left
@@ -47,15 +47,12 @@ function useWindowSize() {
   return size;
 }
 
-interface MetricsOverlayProps {
-  metrics: Metric[];
-}
-
-export default function MetricsOverlay({ metrics }: MetricsOverlayProps) {
+/** The areas laid out around the body map, each linking to its own page. */
+export default function AreasOverlay() {
   const navigate = useNavigate();
   const { w, h } = useWindowSize();
-  const leftCount = leftCountFor(metrics.length);
-  const allAngles = computeAngles(metrics.length);
+  const leftCount = leftCountFor(AREAS.length);
+  const allAngles = computeAngles(AREAS.length);
   const cx = w / 2;
   const cy = h / 2 - 88;
 
@@ -77,13 +74,13 @@ export default function MetricsOverlay({ metrics }: MetricsOverlayProps) {
             </feMerge>
           </filter>
         </defs>
-        {metrics.map((metric, i) => {
+        {AREAS.map((area, i) => {
           const θ = toRad(allAngles[i]);
           const lx = cx + R * Math.cos(θ);
           const ly = cy - R * Math.sin(θ);
           return (
             <line
-              key={metric.id}
+              key={area.slug}
               x1={cx}
               y1={cy}
               x2={lx}
@@ -98,22 +95,22 @@ export default function MetricsOverlay({ metrics }: MetricsOverlayProps) {
       </svg>
 
       {/* Labels */}
-      {metrics.map((metric, i) => {
+      {AREAS.map((area, i) => {
         const θ = toRad(allAngles[i]);
         const xOff = R * Math.cos(θ);
         const yOff = R * Math.sin(θ);
         const isLeft = i < leftCount;
 
         return (
-          <MetricLabel
-            key={metric.id}
-            metric={metric}
+          <AreaLabel
+            key={area.slug}
+            area={area}
             cx={cx}
             cy={cy}
             xOff={xOff}
             yOff={yOff}
             isLeft={isLeft}
-            onNavigate={() => navigate(`/metric/${metric.id}`)}
+            onNavigate={() => navigate(`/${area.slug}`)}
           />
         );
       })}
@@ -121,8 +118,8 @@ export default function MetricsOverlay({ metrics }: MetricsOverlayProps) {
   );
 }
 
-interface MetricLabelProps {
-  metric: Metric;
+interface AreaLabelProps {
+  area: Area;
   cx: number;
   cy: number;
   xOff: number;
@@ -131,18 +128,18 @@ interface MetricLabelProps {
   onNavigate: () => void;
 }
 
-function MetricLabel({
-  metric,
+function AreaLabel({
+  area,
   cx,
   cy,
   xOff,
   yOff,
   isLeft,
   onNavigate,
-}: MetricLabelProps) {
+}: AreaLabelProps) {
   const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
-  const isSteps = metric.type === "steps";
+  const isSteps = area.kind === "steps";
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // Close the quick panel when clicking anywhere outside of it.
@@ -176,7 +173,7 @@ function MetricLabel({
           }`}
           style={{ transformOrigin: isLeft ? "right center" : "left center" }}
         >
-          {metric.name}
+          {area.label}
         </button>
 
         {isSteps && (
@@ -197,7 +194,9 @@ function MetricLabel({
         )}
       </span>
 
-      {open && isSteps && <StepsQuickPanel id={metric.id} isLeft={isLeft} />}
+      {open && isSteps && (
+        <StepsQuickPanel id={STEPS.metricId} isLeft={isLeft} />
+      )}
     </div>
   );
 }

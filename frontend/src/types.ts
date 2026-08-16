@@ -1,21 +1,13 @@
 // The JSON the backend sends back, mirroring backend/src/types.ts, plus the theme
 // palette the dashboard and sidebar share.
 
-export type MetricType = "generic" | "steps" | "notebook";
 export type RoadmapStatus = "upcoming" | "in_progress" | "done";
 
 /**
- * Metric ids reach the API both as numbers (straight off a `Metric`) and as strings
- * (straight off a route param), and they are interpolated into URLs either way.
+ * The id the backend files an area's rows under, taken from the area list in
+ * `areas.ts` and interpolated straight into the API's paths.
  */
-export type MetricId = number | string;
-
-export interface Metric {
-  id: number;
-  name: string;
-  type: MetricType;
-  created_at: string;
-}
+export type MetricId = number;
 
 export interface Note {
   id: number;
