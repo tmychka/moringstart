@@ -680,6 +680,61 @@ const parseTodo = (value: unknown, index: number): Todo | null => {
   };
 };
 
+// --- completion log ----------------------------------------------------------
+
+export const TODOS_LOG_KEY = "super-todos-log";
+
+/**
+ * How many tasks were completed on each day, `YYYY-MM-DD` → count.
+ *
+ * Kept apart from the list because the list forgets. Clearing the done pile
+ * throws every finished row away, and a repeating task overwrites its own
+ * `completed` each time it comes round — so neither can answer "how did last
+ * week go", which is the only question whose answer is worth saying out loud.
+ * A tally by day stays a few kilobytes for years.
+ */
+export type CompletionLog = Record<string, number>;
+
+/** Days of history kept. Past this, the oldest fall off the end. */
+const LOG_DAYS = 400;
+
+function readLog(): CompletionLog {
+  try {
+    const parsed: unknown = JSON.parse(
+      localStorage.getItem(TODOS_LOG_KEY) ?? "{}"
+    );
+    const raw = asRecord(parsed);
+    if (!raw) return {};
+    const log: CompletionLog = {};
+    for (const [day, count] of Object.entries(raw)) {
+      // A hand-edited or half-written file should cost the tally, not the page.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number(count) > 0) {
+        log[day] = Math.floor(Number(count));
+      }
+    }
+    return log;
+  } catch {
+    return {};
+  }
+}
+
+function writeLog(log: CompletionLog) {
+  try {
+    localStorage.setItem(TODOS_LOG_KEY, JSON.stringify(log));
+  } catch {
+    // Storage can be blocked or full; the tally still holds for this session.
+  }
+}
+
+const trimLog = (log: CompletionLog): CompletionLog => {
+  const days = Object.keys(log).sort();
+  if (days.length <= LOG_DAYS) return log;
+  const keep = new Set(days.slice(-LOG_DAYS));
+  return Object.fromEntries(
+    Object.entries(log).filter(([day]) => keep.has(day))
+  );
+};
+
 function readTodos(): Todo[] {
   try {
     const parsed: unknown = JSON.parse(
@@ -705,6 +760,7 @@ function writeTodos(list: Todo[]) {
 // One list for the whole app, held module-side like the theme: any component can
 // read it with a hook and mutate it with a plain function call.
 let todos: Todo[] = readTodos();
+let log: CompletionLog = readLog();
 let undoStack: Todo[][] = [];
 const listeners = new Set<() => void>();
 
@@ -720,7 +776,24 @@ const subscribe = (listener: () => void) => {
 };
 
 const getTodos = () => todos;
+const getLog = () => log;
 const getCanUndo = () => undoStack.length > 0;
+
+/**
+ * Move a day's tally. Undo deliberately does not run through here: a completion
+ * that was undone still happened on the day it happened, and letting a stray
+ * undo rewrite the record would make every number the app reports untrustworthy
+ * — which for a tally whose whole job is to be believed is the worse failure.
+ */
+function bumpLog(day: Date, delta: number) {
+  const key = toKey(day);
+  const next = { ...log };
+  const count = (next[key] ?? 0) + delta;
+  if (count > 0) next[key] = count;
+  else delete next[key];
+  log = trimLog(next);
+  writeLog(log);
+}
 
 // Every mutation goes through here, so undo is a stack of whole lists rather
 // than an inverse operation per action.
@@ -740,6 +813,10 @@ export function useTodos(): Todo[] {
 
 export function useCanUndo(): boolean {
   return useSyncExternalStore(subscribe, getCanUndo, getCanUndo);
+}
+
+export function useCompletionLog(): CompletionLog {
+  return useSyncExternalStore(subscribe, getLog, getLog);
 }
 
 export function addTodo(capture: Capture): Todo {
@@ -815,9 +892,17 @@ export function toggleTodo(id: string, now: Date = new Date()): string | null {
       runs: todo.runs + 1,
       position: null,
     });
+    bumpLog(now, 1);
     return due;
   }
 
+  // Reopening comes off the day the task was actually finished, not off today:
+  // reopening on Friday something that was closed on Monday should not make
+  // Friday look worse than it was.
+  bumpLog(
+    todo.done && todo.completed ? new Date(todo.completed) : now,
+    todo.done ? -1 : 1
+  );
   patchTodo(id, {
     done: !todo.done,
     completed: todo.done ? null : now.getTime(),
@@ -922,6 +1007,11 @@ export function undo(): boolean {
 
 // Another tab writing the list should update this one, same as the theme.
 window.addEventListener("storage", (e) => {
+  if (e.key === TODOS_LOG_KEY) {
+    log = readLog();
+    emit();
+    return;
+  }
   if (e.key !== TODOS_STORAGE_KEY) return;
   todos = readTodos();
   // The stack describes a list this tab no longer holds, so it can't be applied.

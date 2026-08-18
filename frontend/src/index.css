@@ -58,22 +58,3 @@ body::before {
     opacity 0.45s ease,
     transform 0.45s ease;
 }
-
-/* The goal-reached gesture on the dashboard: a ring expanding from the pointer,
-   launched a few times in a row so it reads as one wave crossing the card.
-   `both` keeps a delayed ring collapsed instead of flashing at full size while
-   it waits its turn. */
-@keyframes goal-wave {
-  from {
-    transform: scale(0);
-    opacity: 0.5;
-  }
-  to {
-    transform: scale(1);
-    opacity: 0;
-  }
-}
-
-.goal-wave {
-  animation: goal-wave 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
