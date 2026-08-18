@@ -11,6 +11,9 @@ import type {
   Note,
   NoteUpdate,
   Page,
+  ProfilePayload,
+  ProfileUpdate,
+  StatusEntry,
   StepsPayload,
 } from "./types";
 
@@ -61,6 +64,23 @@ export const saveGoal = (id: MetricId, goal: number) =>
   put<{ goal: number }>(`${BASE}/${id}/goal`, { goal });
 export const saveSteps = (id: MetricId, date: string, steps: number) =>
   put<{ date: string; steps: number }>(`${BASE}/${id}/steps`, { date, steps });
+
+// The profile is about the person rather than one of their areas, so it sits at
+// the root instead of under /metrics/:id. A write returns the whole profile
+// back, which is what lets the body map paint a save without a second request.
+const PROFILE = `${API_URL}/profile`;
+
+export const getProfile = () => request<ProfilePayload>(PROFILE);
+export const saveProfile = (body: ProfileUpdate) =>
+  put<ProfilePayload>(PROFILE, body);
+/** Drops the newest status entry and hands the readout back to the one before. */
+export const undoStatus = () =>
+  request<ProfilePayload>(`${PROFILE}/status`, { method: "DELETE" });
+/** Status history between two dates inclusive, oldest first — for the calendar. */
+export const getStatusHistory = (from: string, to: string) =>
+  request<StatusEntry[]>(`${PROFILE}/status/history?from=${from}&to=${to}`);
+export const saveWeight = (date: string, weight: number) =>
+  put<{ date: string; weight: number }>(`${PROFILE}/weight`, { date, weight });
 
 // Passing a topic narrows the list to that subject; leaving it off returns every
 // note on the metric, which is what the metric's own page wants.
