@@ -1,17 +1,10 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import type { SQLInputValue } from 'node:sqlite';
-import {
-  execute,
-  insertedId,
-  nextFreeId,
-  queryAll,
-  queryOne,
-  required,
-  rowCount,
-} from './db';
+import { execute, insertedId, nextFreeId, queryAll, queryOne, required, rowCount } from './db';
 import {
   isBlockType,
+  isProfileMode,
   isRoadmapStatus,
   type Block,
   type BlockRow,
@@ -22,6 +15,9 @@ import {
   type Note,
   type NoteRow,
   type Page,
+  type ProfilePayload,
+  type ProfileRow,
+  type StatusEntry,
   type StepsPayload,
 } from './types';
 
@@ -113,6 +109,161 @@ app.put('/metrics/:id/steps', (req, res: Response<{ date: string; steps: number 
     execute('DELETE FROM step_entries WHERE metric_id = ? AND date = ?', metricId, date);
   }
   return res.json({ date, steps });
+});
+
+// --- Profile: status, mode, weight ---
+
+// Enough history for the timeline to cover a long day several times over, while
+// keeping the payload a fixed size however long the log grows.
+const STATUS_LOG_LIMIT = 60;
+
+const readProfile = (): ProfilePayload => {
+  const row = required(queryOne<ProfileRow>('SELECT * FROM profile WHERE id = 1'), 'profile');
+  const log = queryAll<StatusEntry>(
+    'SELECT id, status, at FROM status_log ORDER BY at DESC, id DESC LIMIT ?',
+    STATUS_LOG_LIMIT,
+  );
+  const rows = queryAll<{ date: string; weight: number }>(
+    'SELECT date, weight FROM weight_entries',
+  );
+  const weights: Record<string, number> = {};
+  for (const r of rows) weights[r.date] = r.weight;
+
+  return {
+    status: row.status,
+    mode: row.mode,
+    weightGoal: row.weight_goal,
+    updatedAt: row.updated_at,
+    log,
+    weights,
+  };
+};
+
+app.get('/profile', (_req, res: Response<ProfilePayload>) => res.json(readProfile()));
+
+app.put('/profile', (req, res: Response<ProfilePayload | ErrorBody>) => {
+  const body = bodyOf(req);
+  const sets: string[] = [];
+  const values: SQLInputValue[] = [];
+
+  // A blank status is a real value — it clears the readout — so this one is
+  // checked for being a string rather than run through `trimmed`.
+  if (body.status !== undefined) {
+    if (typeof body.status !== 'string') {
+      return res.status(400).json({ error: 'status must be a string' });
+    }
+    const status = body.status.trim().slice(0, 60);
+    // Only a change is worth logging: saving the same status twice is what
+    // re-opening the panel does, and it should not fill the day with spans.
+    const current = queryOne<{ status: string }>('SELECT status FROM profile WHERE id = 1');
+    if (status && status !== current?.status) {
+      execute('INSERT INTO status_log (status) VALUES (?)', status);
+    }
+    sets.push('status = ?');
+    values.push(status);
+  }
+
+  if (body.mode !== undefined) {
+    if (!isProfileMode(body.mode)) {
+      return res.status(400).json({ error: 'mode must be cut, maintain or bulk' });
+    }
+    sets.push('mode = ?');
+    values.push(body.mode);
+  }
+
+  if (body.weightGoal !== undefined) {
+    const goal = Number(body.weightGoal);
+    // 0 clears the target; anything else has to be a plausible body weight.
+    if (!Number.isFinite(goal) || goal < 0 || (goal > 0 && (goal < 30 || goal > 400))) {
+      return res.status(400).json({ error: 'weightGoal must be 0 or between 30 and 400' });
+    }
+    sets.push('weight_goal = ?');
+    values.push(goal);
+  }
+
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+  sets.push("updated_at = datetime('now')");
+  execute(`UPDATE profile SET ${sets.join(', ')} WHERE id = 1`, ...values);
+  return res.json(readProfile());
+});
+
+/**
+ * Takes back the last status. Setting one to '' would clear the readout but
+ * leave its entry in the log — and so leave its block on the day strip, which
+ * is the opposite of what taking it back means. This drops the entry itself and
+ * hands the readout back to whatever was running before it.
+ */
+app.delete('/profile/status', (_req, res: Response<ProfilePayload | ErrorBody>) => {
+  const latest = queryOne<{ id: number }>('SELECT id FROM status_log ORDER BY id DESC LIMIT 1');
+  if (!latest) return res.status(404).json({ error: 'nothing to undo' });
+
+  execute('DELETE FROM status_log WHERE id = ?', latest.id);
+  const previous = queryOne<{ status: string }>(
+    'SELECT status FROM status_log ORDER BY id DESC LIMIT 1',
+  );
+  execute(
+    "UPDATE profile SET status = ?, updated_at = datetime('now') WHERE id = 1",
+    previous?.status ?? '',
+  );
+  return res.json(readProfile());
+});
+
+/**
+ * The status log between two dates, oldest first. The profile carries only
+ * enough history for today's strip; a whole month of statuses is far more than
+ * that and is wanted only when the calendar is opened, so it is fetched on its
+ * own and by the range the calendar is actually showing.
+ *
+ * Both ends are inclusive of the whole day. Rows are stored in UTC and the
+ * client buckets them by its own local midnights, so it asks for a day either
+ * side of the month it is drawing rather than having entries near a boundary
+ * fall outside a UTC-cut window.
+ */
+app.get('/profile/status/history', (req, res: Response<StatusEntry[] | ErrorBody>) => {
+  const { from, to } = req.query;
+  const isDate = (value: unknown): value is string =>
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+  if (!isDate(from) || !isDate(to)) {
+    return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+  }
+  if (from > to) {
+    return res.status(400).json({ error: 'from must not be after to' });
+  }
+
+  return res.json(
+    queryAll<StatusEntry>(
+      'SELECT id, status, at FROM status_log WHERE at >= ? AND at <= ? ORDER BY at ASC',
+      `${from} 00:00:00`,
+      `${to} 23:59:59`,
+    ),
+  );
+});
+
+app.put('/profile/weight', (req, res: Response<{ date: string; weight: number } | ErrorBody>) => {
+  const { date } = bodyOf(req);
+  const weight = Number(bodyOf(req).weight);
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  }
+  // As with steps, 0 means "no reading that day" rather than a weight of zero.
+  if (!Number.isFinite(weight) || weight < 0 || (weight > 0 && (weight < 30 || weight > 400))) {
+    return res.status(400).json({ error: 'weight must be 0 or between 30 and 400' });
+  }
+  if (weight > 0) {
+    const rounded = Math.round(weight * 10) / 10;
+    execute(
+      `
+      INSERT INTO weight_entries (date, weight) VALUES (?, ?)
+      ON CONFLICT(date) DO UPDATE SET weight = excluded.weight
+    `,
+      date,
+      rounded,
+    );
+    return res.json({ date, weight: rounded });
+  }
+  execute('DELETE FROM weight_entries WHERE date = ?', date);
+  return res.json({ date, weight: 0 });
 });
 
 // --- Programmer's Notebook ---

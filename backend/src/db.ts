@@ -80,6 +80,40 @@ db.exec(`
   )
 `);
 
+// The person, rather than one of their areas — which is why this hangs off no
+// `metric_id`. There is exactly one of them, so the row is pinned to id 1 and
+// seeded here: every read can then assume it exists.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS profile (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    status TEXT NOT NULL DEFAULT '',
+    mode TEXT NOT NULL DEFAULT 'maintain',
+    weight_goal REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+db.exec('INSERT OR IGNORE INTO profile (id) VALUES (1)');
+
+// Only *changes* are appended (see the route), so a row is the start of a span
+// and the next row ends it. That keeps the day readable as a handful of spans
+// rather than one entry per save.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS status_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL,
+    at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// Same shape as step_entries — one number per day, keyed by date — because the
+// two are read the same way: as a series to draw a trend from.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS weight_entries (
+    date TEXT PRIMARY KEY,
+    weight REAL NOT NULL
+  )
+`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

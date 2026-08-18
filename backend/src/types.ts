@@ -41,6 +41,46 @@ export interface ErrorBody {
   error: string;
 }
 
+// --- Profile: the person the areas all hang off ---
+
+/**
+ * The regime the body is being run in. Unlike a status this is a closed set,
+ * because it is what says which direction on the scale counts as progress.
+ */
+export const PROFILE_MODES = ['cut', 'maintain', 'bulk'] as const;
+export type ProfileMode = (typeof PROFILE_MODES)[number];
+
+/** One entry in the status history: what was being done, and from when. */
+export interface StatusEntry {
+  id: number;
+  status: string;
+  at: string;
+}
+
+/** The profile as stored — a single row, always id 1. */
+export interface ProfileRow {
+  status: string;
+  mode: ProfileMode;
+  weight_goal: number;
+  updated_at: string;
+}
+
+/** Everything the body map needs in one request. */
+export interface ProfilePayload {
+  status: string;
+  mode: ProfileMode;
+  /** Target weight in kg; 0 when none has been set. */
+  weightGoal: number;
+  updatedAt: string;
+  /** Recent status changes, newest first. */
+  log: StatusEntry[];
+  /** Date (YYYY-MM-DD) → weight in kg. */
+  weights: Record<string, number>;
+}
+
+export const isProfileMode = (value: unknown): value is ProfileMode =>
+  typeof value === 'string' && (PROFILE_MODES as readonly string[]).includes(value);
+
 // --- Workspace: folders → pages → blocks ---
 
 export const BLOCK_TYPES = [
