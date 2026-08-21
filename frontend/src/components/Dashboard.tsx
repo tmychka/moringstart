@@ -1,46 +1,15 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getNotes, getRoadmap, getSteps, saveSteps } from "../api";
+import { useQuery } from "@tanstack/react-query";
+import { getNotes, getRoadmap } from "../api";
 import AppSidebar from "./AppSidebar";
 import NextUp from "./NextUp";
-import { DEVELOPER, ENGLISH, STEPS } from "../areas";
-import { fmt, toKey } from "../stepsUtil";
-import { summarize, timeAgo, type DaySummary } from "../dashboardStats";
+import { DEVELOPER, ENGLISH } from "../areas";
+import { timeAgo } from "../dashboardStats";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import { readWords } from "../englishWords";
-import type { Milestone, StepsPayload, Theme } from "../types";
-
-const CHART_DAYS = 7;
-const WINDOW_DAYS = 30;
-// Segments per day column — each one is an eighth of the daily goal.
-const SEGMENTS = 8;
-
-// Goal-reached wave: wide enough to leave the card from any corner, and three
-// rings launched a beat apart so it reads as a swell rather than one circle.
-const WAVE_SIZE = 1800;
-const WAVE_DELAYS = [0, 130, 260];
-
-interface Wave {
-  id: number;
-  x: number;
-  y: number;
-}
-
-// Today's total renders as a button or as an input depending on the mode; the
-// shared class list is what keeps the two indistinguishable.
-const bigNumberClass =
-  "m-0 block h-full w-auto border-0 bg-transparent p-0 font-sans text-[2.1rem] font-extralight leading-[2.3rem] tracking-[-0.02em] tabular-nums text-current outline-none";
-
-const RING_RADIUS = 54;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+import useNow from "../useNow";
+import type { Milestone, Theme } from "../types";
 
 const greetingFor = (hour: number): string => {
   if (hour < 5) return "Good night";
@@ -63,33 +32,13 @@ function useEnglishWords() {
   return words;
 }
 
-function useNow(intervalMs = 30000): Date {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-
-  return now;
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const now = useNow();
   const words = useEnglishWords();
   const { t } = useTheme();
-  const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [waves, setWaves] = useState<Wave[]>([]);
-  const waveId = useRef(0);
 
   // Query keys match the area pages, so the cache is shared both ways.
-  const { data: steps } = useQuery({
-    queryKey: ["steps", STEPS.metricId],
-    queryFn: () => getSteps(STEPS.metricId),
-  });
   const { data: notes } = useQuery({
     queryKey: ["notes", DEVELOPER.metricId],
     queryFn: () => getNotes(DEVELOPER.metricId),
@@ -98,85 +47,6 @@ export default function Dashboard() {
     queryKey: ["roadmap", DEVELOPER.metricId],
     queryFn: () => getRoadmap(DEVELOPER.metricId),
   });
-
-  const goal = typeof steps?.goal === "number" ? steps.goal : 0;
-  const entries = useMemo(() => steps?.entries ?? {}, [steps]);
-
-  const todayKey = toKey(now);
-  const todaySteps = entries[todayKey] ?? 0;
-  const progress = goal > 0 ? Math.min(todaySteps / goal, 1) : 0;
-
-  const stats = useMemo(
-    () => summarize(entries, goal, WINDOW_DAYS, now),
-    // `now` ticks every 30s; the window only needs to change when the day does.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, goal, todayKey]
-  );
-  const week = stats.window.slice(-CHART_DAYS);
-
-  // Today's number doubles as the input: click to edit, Enter to save. Writes go
-  // to the same cache entry the steps page reads, painted optimistically so the
-  // ring and the week below react on the keystroke rather than on the response.
-  const saveMut = useMutation({
-    mutationFn: (vars: { date: string; steps: number }) =>
-      saveSteps(STEPS.metricId, vars.date, vars.steps),
-    onError: () =>
-      queryClient.invalidateQueries({ queryKey: ["steps", STEPS.metricId] }),
-  });
-
-  const commitSteps = (next: number) => {
-    const value = Math.max(0, Math.round(next) || 0);
-
-    queryClient.setQueryData<StepsPayload>(
-      ["steps", STEPS.metricId],
-      (prev) => {
-        const base = prev ?? { goal, entries: {} };
-        const nextEntries = { ...base.entries };
-        if (value > 0) nextEntries[todayKey] = value;
-        else delete nextEntries[todayKey];
-        return { ...base, entries: nextEntries };
-      }
-    );
-    saveMut.mutate({ date: todayKey, steps: value });
-  };
-
-  const startEditing = () => {
-    setDraft(todaySteps ? String(todaySteps) : "");
-    setEditing(true);
-  };
-
-  const commitDraft = () => {
-    setEditing(false);
-    const value = draft === "" ? 0 : Number(draft);
-    if (!Number.isFinite(value) || value === todaySteps) return;
-    commitSteps(value);
-  };
-
-  const dropWave = (id: number) =>
-    setWaves((prev) => prev.filter((wave) => wave.id !== id));
-
-  // Double-clicking the card is the "done for today" gesture: the goal lands in
-  // one go and a wave rolls out from wherever the pointer was.
-  const completeGoal = (event: MouseEvent<HTMLElement>) => {
-    if (goal <= 0 || editing) return;
-    const box = event.currentTarget.getBoundingClientRect();
-    setWaves((prev) => [
-      ...prev,
-      {
-        id: waveId.current++,
-        x: event.clientX - box.left,
-        y: event.clientY - box.top,
-      },
-    ]);
-    if (todaySteps !== goal) commitSteps(goal);
-  };
-
-  const todayHint =
-    todaySteps === 0
-      ? "Nothing logged yet today"
-      : todaySteps >= goal
-        ? "Goal reached"
-        : `${fmt(goal - todaySteps)} steps to go`;
 
   return (
     <div
@@ -189,119 +59,6 @@ export default function Dashboard() {
           <Header now={now} t={t} />
 
           <div className="grid grid-cols-12 gap-3">
-            <section
-              className={`${cardClass(t)} relative col-span-12 select-none overflow-hidden transition-shadow duration-300`}
-              onDoubleClick={completeGoal}
-              style={
-                waves.length > 0
-                  ? { boxShadow: `0 0 0 1px ${t.accent}` }
-                  : undefined
-              }
-            >
-              {waves.map((wave) => (
-                <span
-                  key={wave.id}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 overflow-hidden"
-                >
-                  {WAVE_DELAYS.map((delay, i) => (
-                    <span
-                      key={delay}
-                      className="goal-wave absolute rounded-full"
-                      style={{
-                        left: wave.x - WAVE_SIZE / 2,
-                        top: wave.y - WAVE_SIZE / 2,
-                        width: WAVE_SIZE,
-                        height: WAVE_SIZE,
-                        border: `1px solid ${t.accent}`,
-                        animationDelay: `${delay}ms`,
-                      }}
-                      onAnimationEnd={
-                        i === WAVE_DELAYS.length - 1
-                          ? () => dropWave(wave.id)
-                          : undefined
-                      }
-                    />
-                  ))}
-                </span>
-              ))}
-
-              <div className="flex flex-wrap items-center gap-5">
-                <ProgressRing progress={progress} t={t} />
-                <div className="min-w-0">
-                  <p className={labelClass(t)}>Today</p>
-                  {/* Both states share one fixed-height slot and identical type
-                      metrics, so switching into edit mode doesn't nudge the card. */}
-                  <div className="mt-2 h-[2.3rem]">
-                    {editing ? (
-                      <input
-                        autoFocus
-                        type="text"
-                        inputMode="numeric"
-                        value={draft}
-                        aria-label="Steps logged today"
-                        onChange={(event) =>
-                          setDraft(event.target.value.replace(/\D/g, ""))
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") commitDraft();
-                          if (event.key === "Escape") setEditing(false);
-                        }}
-                        onBlur={commitDraft}
-                        style={{
-                          width: `${Math.max(draft.length, 1) + 0.6}ch`,
-                        }}
-                        className={`${bigNumberClass} select-text caret-current`}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={startEditing}
-                        title="Click to edit · double-click the card to hit the goal"
-                        className={`${bigNumberClass} cursor-text text-left transition-opacity hover:opacity-60`}
-                      >
-                        {fmt(todaySteps)}
-                      </button>
-                    )}
-                  </div>
-                  <p className={`m-0 mt-2 truncate text-[0.78rem] ${t.body}`}>
-                    {editing ? "Enter to save · Esc to cancel" : todayHint}
-                  </p>
-                  <p className={`m-0 mt-1 text-[0.7rem] ${t.muted}`}>
-                    Goal {fmt(goal)}
-                  </p>
-                </div>
-
-                {/* Sits beside the ring on wide cards, drops to its own line
-                    once the phone layout runs out of room. */}
-                <div
-                  className={`w-full shrink-0 sm:ml-auto sm:w-auto sm:border-l sm:pl-5 sm:text-right ${t.rule}`}
-                >
-                  <p className={labelClass(t)}>Daily avg</p>
-                  <p
-                    className={`m-0 mt-2 text-[1.8rem] leading-none ${numeralClass}`}
-                  >
-                    {stats.average ? fmt(stats.average) : "—"}
-                  </p>
-                  <p className={`m-0 mt-2 text-[0.7rem] ${t.muted}`}>
-                    {WINDOW_DAYS}-day window
-                  </p>
-                </div>
-              </div>
-
-              <div className={`mt-5 border-t pt-4 ${t.rule}`}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className={labelClass(t)}>Last {CHART_DAYS} days</p>
-                  <p className={`m-0 text-[0.7rem] ${t.muted}`}>
-                    {stats.best
-                      ? `Best ${fmt(stats.best.steps)} · ${WINDOW_DAYS}-day total ${fmt(stats.total)}`
-                      : "No entries yet"}
-                  </p>
-                </div>
-                <WeekBreakdown days={week} goal={goal} today={todayKey} t={t} />
-              </div>
-            </section>
-
             <NextUp t={t} now={now} className="col-span-12" />
             <Roadmap
               t={t}
@@ -429,116 +186,6 @@ function Stat({ label, value, hint, className = "", onClick, t }: StatProps) {
     >
       {body}
     </button>
-  );
-}
-
-function ProgressRing({ progress, t }: { progress: number; t: Theme }) {
-  return (
-    <div className="relative shrink-0">
-      <svg viewBox="0 0 120 120" className="h-[98px] w-[98px] -rotate-90">
-        <circle
-          cx="60"
-          cy="60"
-          r={RING_RADIUS}
-          fill="none"
-          stroke={t.track}
-          strokeWidth="6"
-        />
-        <circle
-          cx="60"
-          cy="60"
-          r={RING_RADIUS}
-          fill="none"
-          stroke={t.accent}
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={RING_LENGTH}
-          strokeDashoffset={RING_LENGTH * (1 - progress)}
-          style={{
-            transition: "stroke-dashoffset 700ms cubic-bezier(.22,.61,.36,1)",
-          }}
-        />
-      </svg>
-      <span
-        className={`absolute inset-0 grid place-items-center text-[1.05rem] ${numeralClass}`}
-      >
-        {`${Math.round(progress * 100)}%`}
-      </span>
-    </div>
-  );
-}
-
-interface WeekBreakdownProps {
-  days: DaySummary[];
-  goal: number;
-  today: string;
-  t: Theme;
-}
-
-// Each day is a stack of segments rather than one solid bar: a segment is a
-// fixed slice of the goal, so a column can be read as "six of eight" without
-// looking at the axis, and one runaway day can't squash the rest of the week.
-// Filled segments brighten towards the top, which gives the week its silhouette
-// even before the numbers are read.
-function WeekBreakdown({ days, goal, today, t }: WeekBreakdownProps) {
-  const scale = goal > 0 ? goal : Math.max(...days.map((d) => d.steps), 1);
-
-  return (
-    <div className="mt-4 flex items-end justify-between gap-2 sm:gap-3">
-      {days.map((day) => {
-        const ratio = Math.min(day.steps / scale, 1);
-        // Anything logged earns a segment, so a light day never reads as empty.
-        const filled = day.steps
-          ? Math.max(1, Math.round(ratio * SEGMENTS))
-          : 0;
-        const hit = goal > 0 && day.steps >= goal;
-        const isToday = day.key === today;
-
-        return (
-          <div
-            key={day.key}
-            title={`${day.key} — ${day.steps ? `${fmt(day.steps)} steps` : "no entry"}`}
-            className="flex max-w-[80px] flex-1 flex-col items-center gap-2 rounded-[10px] px-1 py-2"
-            style={isToday ? { backgroundColor: t.track } : undefined}
-          >
-            <span
-              className={`whitespace-nowrap text-[0.62rem] ${numeralClass} ${
-                day.steps ? t.body : t.faint
-              }`}
-            >
-              {day.steps ? fmt(day.steps) : "—"}
-            </span>
-
-            <div className="flex w-full max-w-[46px] flex-col-reverse gap-[3px]">
-              {Array.from({ length: SEGMENTS }, (_, i) => {
-                const lit = i < filled;
-                return (
-                  <span
-                    key={i}
-                    className="h-[6px] rounded-[2px] transition-colors duration-500"
-                    style={{
-                      backgroundColor: lit
-                        ? hit
-                          ? t.accent
-                          : t.accentSoft
-                        : t.track,
-                      opacity: lit ? 0.55 + (0.45 * (i + 1)) / SEGMENTS : 0.28,
-                    }}
-                  />
-                );
-              })}
-            </div>
-
-            <span
-              className={`text-[0.62rem] ${isToday ? "" : t.faint}`}
-              style={isToday ? { color: t.accent } : undefined}
-            >
-              {day.date.toLocaleDateString("en-GB", { weekday: "short" })}
-            </span>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
