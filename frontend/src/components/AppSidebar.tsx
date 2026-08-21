@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar, { type SidebarLink } from "./Sidebar";
+import SidebarSupport from "./SidebarSupport";
 import { AREAS } from "../areas";
 import { useTheme } from "../theme";
 
@@ -48,6 +49,7 @@ export default function AppSidebar({
       onNavigate={navigate}
       links={variant === "full" ? AREA_LINKS : links}
       variant={variant}
+      support={<SidebarSupport />}
     />
   );
 }

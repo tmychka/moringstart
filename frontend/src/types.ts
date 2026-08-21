@@ -40,6 +40,82 @@ export interface StepsPayload {
   entries: StepEntries;
 }
 
+// --- Training: two routines, logged set by set ---
+
+/**
+ * Which routine a session is. The exercises that belong to each live in
+ * `training.ts`; this is only what a stored session is filed under.
+ */
+export const WORKOUT_KINDS = ["strength", "simple", "plank", "rope"] as const;
+export type WorkoutKind = (typeof WORKOUT_KINDS)[number];
+
+/** One set as performed. `weight` is 0 for the bodyweight routine. */
+export interface WorkoutSet {
+  id: number;
+  session_id: number;
+  /** Exercise slug from the plan in `training.ts`. */
+  exercise: string;
+  reps: number;
+  weight: number;
+  position: number;
+  created_at: string;
+}
+
+/** One workout. `finished_at` is null while it is still being worked through. */
+export interface WorkoutSession {
+  id: number;
+  metric_id: number;
+  /** The local day it belongs to, YYYY-MM-DD. */
+  date: string;
+  kind: WorkoutKind;
+  finished_at: string | null;
+  created_at: string;
+  sets: WorkoutSet[];
+}
+
+// --- Profile: the person the areas all hang off ---
+
+/**
+ * The regime the body is being run in. Unlike a status this is a closed set,
+ * because it is what says which direction on the scale counts as progress.
+ */
+export const PROFILE_MODES = ["cut", "maintain", "bulk"] as const;
+export type ProfileMode = (typeof PROFILE_MODES)[number];
+
+/** One entry in the status history: what was being done, and from when. */
+export interface StatusEntry {
+  id: number;
+  status: string;
+  at: string;
+}
+
+/** Date (YYYY-MM-DD) → weight in kg. */
+export type WeightEntries = Record<string, number>;
+
+export interface ProfilePayload {
+  status: string;
+  mode: ProfileMode;
+  /** Target weight in kg; 0 when none has been set. */
+  weightGoal: number;
+  updatedAt: string;
+  /** Recent status changes, newest first. */
+  log: StatusEntry[];
+  weights: WeightEntries;
+}
+
+export interface ProfileUpdate {
+  status?: string;
+  mode?: ProfileMode;
+  weightGoal?: number;
+  /**
+   * The client's local midnight, as a UTC `YYYY-MM-DD HH:MM:SS` stamp. Sent
+   * with a status so the server can tell a repeat of the span already running
+   * from the same words set again on a new day — a boundary it cannot work out
+   * on its own, since it has no idea which timezone the day belongs to.
+   */
+  dayStart?: string;
+}
+
 // --- Request bodies ---
 
 export interface NoteUpdate {
@@ -110,6 +186,13 @@ export interface BlockContent {
   /** code */
   code?: string;
   lang?: string;
+  /**
+   * Whether long lines wrap instead of scrolling sideways. Kept per block and
+   * default-on: wrapping is what you want almost every time, and the exception
+   * is a snippet holding a table or a diagram drawn in characters, where a
+   * wrapped line breaks the picture.
+   */
+  wrap?: boolean;
   /** link, image */
   url?: string;
   /** link */
