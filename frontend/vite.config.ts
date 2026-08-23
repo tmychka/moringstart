@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       "/metrics": "http://localhost:3000",
       "/profile": "http://localhost:3000",
+      "/workouts": "http://localhost:3000",
       "/workspace": "http://localhost:3000",
     },
   },

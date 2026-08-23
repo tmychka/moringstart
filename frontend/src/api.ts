@@ -15,6 +15,9 @@ import type {
   ProfileUpdate,
   StatusEntry,
   StepsPayload,
+  WorkoutKind,
+  WorkoutSession,
+  WorkoutSet,
 } from "./types";
 
 // In dev, VITE_API_URL is empty and requests go through the Vite proxy (see vite.config.ts).
@@ -81,6 +84,33 @@ export const getStatusHistory = (from: string, to: string) =>
   request<StatusEntry[]>(`${PROFILE}/status/history?from=${from}&to=${to}`);
 export const saveWeight = (date: string, weight: number) =>
   put<{ date: string; weight: number }>(`${PROFILE}/weight`, { date, weight });
+
+// Training. Sessions hang off the metric the area is filed under; everything
+// below one is addressed by its own id, the way the workspace is, because a set
+// is only ever reached from the session it was logged in.
+const WORKOUTS = `${API_URL}/workouts`;
+
+/** Every session, newest first — the whole history, so records are the best ever. */
+export const getWorkouts = (id: MetricId) =>
+  request<WorkoutSession[]>(`${BASE}/${id}/workouts`);
+/** Starts a workout, or resumes the unfinished one for that day and routine. */
+export const startWorkout = (id: MetricId, date: string, kind: WorkoutKind) =>
+  post<WorkoutSession>(`${BASE}/${id}/workouts`, { date, kind });
+export const setWorkoutFinished = (sessionId: number, finished: boolean) =>
+  put<WorkoutSession>(`${WORKOUTS}/${sessionId}`, { finished });
+export const deleteWorkout = (sessionId: number) =>
+  del(`${WORKOUTS}/${sessionId}`);
+
+export const logSet = (
+  sessionId: number,
+  exercise: string,
+  reps: number,
+  weight: number
+) =>
+  post<WorkoutSet>(`${WORKOUTS}/${sessionId}/sets`, { exercise, reps, weight });
+export const updateSet = (setId: number, reps: number, weight: number) =>
+  put<WorkoutSet>(`${WORKOUTS}/sets/${setId}`, { reps, weight });
+export const deleteSet = (setId: number) => del(`${WORKOUTS}/sets/${setId}`);
 
 // Passing a topic narrows the list to that subject; leaving it off returns every
 // note on the metric, which is what the metric's own page wants.

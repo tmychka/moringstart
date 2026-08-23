@@ -41,6 +41,47 @@ export interface ErrorBody {
   error: string;
 }
 
+// --- Training: two routines, logged set by set ---
+
+/**
+ * Which routine a session is. Closed, like a profile mode: the exercises that
+ * belong to each live in the frontend's plan, but the kind is what a stored
+ * session is filed under, so the server has to know the set.
+ */
+export const WORKOUT_KINDS = ['strength', 'simple', 'plank', 'rope'] as const;
+export type WorkoutKind = (typeof WORKOUT_KINDS)[number];
+
+/** One set as performed. `weight` is 0 for the bodyweight routine. */
+export interface WorkoutSet {
+  id: number;
+  session_id: number;
+  /** Exercise slug from the frontend's plan — opaque here. */
+  exercise: string;
+  reps: number;
+  weight: number;
+  position: number;
+  created_at: string;
+}
+
+/** A session as stored; `finished_at` is null while it is still running. */
+export interface WorkoutSessionRow {
+  id: number;
+  metric_id: number;
+  /** The client's local day, YYYY-MM-DD. */
+  date: string;
+  kind: WorkoutKind;
+  finished_at: string | null;
+  created_at: string;
+}
+
+/** A session as sent to clients: never without the sets it is made of. */
+export interface WorkoutSession extends WorkoutSessionRow {
+  sets: WorkoutSet[];
+}
+
+export const isWorkoutKind = (value: unknown): value is WorkoutKind =>
+  typeof value === 'string' && (WORKOUT_KINDS as readonly string[]).includes(value);
+
 // --- Profile: the person the areas all hang off ---
 
 /**
