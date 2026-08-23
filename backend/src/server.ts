@@ -6,6 +6,8 @@ import {
   isBlockType,
   isProfileMode,
   isRoadmapStatus,
+  isWorkoutKind,
+  WORKOUT_KINDS,
   type Block,
   type BlockRow,
   type ErrorBody,
@@ -19,6 +21,9 @@ import {
   type ProfileRow,
   type StatusEntry,
   type StepsPayload,
+  type WorkoutSession,
+  type WorkoutSessionRow,
+  type WorkoutSet,
 } from './types';
 
 const app = express();
@@ -153,10 +158,41 @@ app.put('/profile', (req, res: Response<ProfilePayload | ErrorBody>) => {
       return res.status(400).json({ error: 'status must be a string' });
     }
     const status = body.status.trim().slice(0, 60);
-    // Only a change is worth logging: saving the same status twice is what
-    // re-opening the panel does, and it should not fill the day with spans.
-    const current = queryOne<{ status: string }>('SELECT status FROM profile WHERE id = 1');
-    if (status && status !== current?.status) {
+
+    /*
+     * Only a change is worth logging: saving the same status twice is what
+     * blurring the field or clicking the chip already lit does, and it should
+     * not fill the day with spans.
+     *
+     * "The same" means the span currently running, not the profile's status —
+     * that one carries across midnight, so comparing against it meant setting
+     * the status you went to bed in was silently a no-op, and the new day
+     * started with nothing on it. `dayStart` is the client's local midnight as
+     * a UTC stamp: the day boundary is only knowable where the timezone is, so
+     * the client says where it falls and this compares against it.
+     */
+    const dayStart =
+      typeof body.dayStart === 'string' &&
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(body.dayStart)
+        ? body.dayStart
+        : null;
+    const newest = queryOne<{ status: string; at: string }>(
+      'SELECT status, at FROM status_log ORDER BY id DESC LIMIT 1',
+    );
+    const inThisDay = !!newest && (!dayStart || newest.at >= dayStart);
+    const alreadyRunning = !!newest && newest.status === status && inThisDay;
+
+    /*
+     * A blank status is logged too, as a row that means "from here, nothing".
+     * It has to be a row rather than only a cleared readout: a span runs until
+     * the next entry starts, so without something to end it, clearing the field
+     * left the last status quietly collecting hours it was never doing.
+     *
+     * Only when there is actually something to stop, though — a blank on a day
+     * that is already blank is not an event.
+     */
+    const running = !!newest && newest.status !== '' && inThisDay;
+    if (!alreadyRunning && (status || running)) {
       execute('INSERT INTO status_log (status) VALUES (?)', status);
     }
     sets.push('status = ?');
@@ -663,6 +699,192 @@ app.delete('/workspace/blocks/:blockId', (req, res: Response<ErrorBody | void>) 
   const info = execute('DELETE FROM workspace_blocks WHERE id = ?', blockId);
   if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
   if (row) touchPage(row.page_id);
+  return res.status(204).end();
+});
+
+// --- Training ---
+
+/** Which exercises belong to a routine is the frontend's plan; a set only ever
+ * carries the slug, so nothing here has to change when the plan does. */
+const MAX_REPS = 999;
+const MAX_WEIGHT = 500;
+
+const isDate = (value: unknown): value is string =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+/**
+ * Every set of the given sessions, grouped by the session it belongs to. One
+ * query rather than one per session, so listing a month of history costs the
+ * same two round trips as listing a single day.
+ */
+const setsBySession = (ids: number[]): Map<number, WorkoutSet[]> => {
+  const grouped = new Map<number, WorkoutSet[]>();
+  if (ids.length === 0) return grouped;
+  const rows = queryAll<WorkoutSet>(
+    `SELECT * FROM workout_sets WHERE session_id IN (${ids.map(() => '?').join(',')})
+     ORDER BY position ASC, id ASC`,
+    ...ids,
+  );
+  for (const row of rows) {
+    const list = grouped.get(row.session_id);
+    if (list) list.push(row);
+    else grouped.set(row.session_id, [row]);
+  }
+  return grouped;
+};
+
+/** A session is never sent without its sets — it is nothing on its own. */
+const withSets = (rows: WorkoutSessionRow[]): WorkoutSession[] => {
+  const grouped = setsBySession(rows.map((row) => row.id));
+  return rows.map((row) => ({ ...row, sets: grouped.get(row.id) ?? [] }));
+};
+
+const readSession = (id: number | string): WorkoutSession | undefined => {
+  const row = queryOne<WorkoutSessionRow>('SELECT * FROM workout_sessions WHERE id = ?', id);
+  return row ? withSets([row])[0] : undefined;
+};
+
+/**
+ * The sessions on a metric, newest first. `from`/`to` narrow it to a range;
+ * leaving both off returns the whole history, which is what the records want —
+ * a personal best is the best ever, not the best in the window on screen.
+ */
+app.get('/metrics/:id/workouts', (req, res: Response<WorkoutSession[] | ErrorBody>) => {
+  const metricId = Number(req.params.id);
+  const { from, to } = req.query;
+  const bounded = from !== undefined || to !== undefined;
+  if (bounded && (!isDate(from) || !isDate(to))) {
+    return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+  }
+
+  const rows = bounded
+    ? queryAll<WorkoutSessionRow>(
+        `SELECT * FROM workout_sessions WHERE metric_id = ? AND date >= ? AND date <= ?
+         ORDER BY date DESC, id DESC`,
+        metricId,
+        from as string,
+        to as string,
+      )
+    : queryAll<WorkoutSessionRow>(
+        'SELECT * FROM workout_sessions WHERE metric_id = ? ORDER BY date DESC, id DESC',
+        metricId,
+      );
+  return res.json(withSets(rows));
+});
+
+/**
+ * Starts a workout. An unfinished session for the same day and routine is
+ * handed back rather than joined by a second one: pressing Start twice is
+ * something a person does, and it should resume what they began, not leave an
+ * empty session behind. Finishing one and starting again is still two sessions.
+ */
+app.post('/metrics/:id/workouts', (req, res: Response<WorkoutSession | ErrorBody>) => {
+  const metricId = Number(req.params.id);
+  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
+  const { date, kind } = bodyOf(req);
+  if (!isDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  if (!isWorkoutKind(kind)) {
+    return res.status(400).json({ error: `kind must be one of ${WORKOUT_KINDS.join(', ')}` });
+  }
+
+  const running = queryOne<WorkoutSessionRow>(
+    `SELECT * FROM workout_sessions
+     WHERE metric_id = ? AND date = ? AND kind = ? AND finished_at IS NULL
+     ORDER BY id DESC LIMIT 1`,
+    metricId,
+    date,
+    kind,
+  );
+  if (running) return res.json(required(readSession(running.id), 'session'));
+
+  const info = execute(
+    'INSERT INTO workout_sessions (metric_id, date, kind) VALUES (?, ?, ?)',
+    metricId,
+    date,
+    kind,
+  );
+  return res.status(201).json(required(readSession(insertedId(info)), 'session'));
+});
+
+/**
+ * Ends a workout, or reopens one. Reopening matters because finishing is a
+ * button you can hit a set early, and the alternative — a second session for
+ * the same routine on the same day — would split one workout in two.
+ */
+app.put('/workouts/:sessionId', (req, res: Response<WorkoutSession | ErrorBody>) => {
+  const { sessionId } = req.params;
+  const { finished } = bodyOf(req);
+  if (typeof finished !== 'boolean') {
+    return res.status(400).json({ error: 'finished must be a boolean' });
+  }
+  const info = execute(
+    `UPDATE workout_sessions SET finished_at = ${finished ? "datetime('now')" : 'NULL'}
+     WHERE id = ?`,
+    sessionId,
+  );
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.json(required(readSession(sessionId), 'session'));
+});
+
+app.delete('/workouts/:sessionId', (req, res: Response<ErrorBody | void>) => {
+  const info = execute('DELETE FROM workout_sessions WHERE id = ?', req.params.sessionId);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.status(204).end();
+});
+
+/** Reps and the weight they were lifted at; 0 kg is the bodyweight routine. */
+const readEffort = (body: Record<string, unknown>): { reps: number; weight: number } | string => {
+  const reps = Number(body.reps);
+  if (!Number.isInteger(reps) || reps < 1 || reps > MAX_REPS) {
+    return `reps must be an integer between 1 and ${MAX_REPS}`;
+  }
+  const weight = body.weight === undefined ? 0 : Number(body.weight);
+  if (!Number.isFinite(weight) || weight < 0 || weight > MAX_WEIGHT) {
+    return `weight must be between 0 and ${MAX_WEIGHT}`;
+  }
+  return { reps, weight: Math.round(weight * 4) / 4 };
+};
+
+app.post('/workouts/:sessionId/sets', (req, res: Response<WorkoutSet | ErrorBody>) => {
+  const { sessionId } = req.params;
+  if (!queryOne<{ 1: number }>('SELECT 1 FROM workout_sessions WHERE id = ?', sessionId)) {
+    return res.status(404).json({ error: 'session not found' });
+  }
+  const exercise = trimmed(bodyOf(req).exercise);
+  if (!exercise) return res.status(400).json({ error: 'exercise required' });
+  const effort = readEffort(bodyOf(req));
+  if (typeof effort === 'string') return res.status(400).json({ error: effort });
+
+  const info = execute(
+    'INSERT INTO workout_sets (session_id, exercise, reps, weight, position) VALUES (?, ?, ?, ?, ?)',
+    sessionId,
+    exercise,
+    effort.reps,
+    effort.weight,
+    nextPosition('workout_sets', 'session_id = ?', sessionId),
+  );
+  const row = queryOne<WorkoutSet>('SELECT * FROM workout_sets WHERE id = ?', insertedId(info));
+  return res.status(201).json(required(row, 'set'));
+});
+
+app.put('/workouts/sets/:setId', (req, res: Response<WorkoutSet | ErrorBody>) => {
+  const { setId } = req.params;
+  const effort = readEffort(bodyOf(req));
+  if (typeof effort === 'string') return res.status(400).json({ error: effort });
+  const info = execute(
+    'UPDATE workout_sets SET reps = ?, weight = ? WHERE id = ?',
+    effort.reps,
+    effort.weight,
+    setId,
+  );
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  const row = queryOne<WorkoutSet>('SELECT * FROM workout_sets WHERE id = ?', setId);
+  return res.json(required(row, 'set'));
+});
+
+app.delete('/workouts/sets/:setId', (req, res: Response<ErrorBody | void>) => {
+  const info = execute('DELETE FROM workout_sets WHERE id = ?', req.params.setId);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
   return res.status(204).end();
 });
 

@@ -114,6 +114,41 @@ db.exec(`
   )
 `);
 
+// A workout is one session on one day: which of the two routines was run, and
+// the sets logged under it. `finished_at` is what separates the session still
+// being worked through from the ones already in the history — a null there is
+// the only thing that makes a session resumable, so a reload mid-workout lands
+// back where it left off rather than starting over.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workout_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    metric_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    finished_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// One row per set actually performed, rather than a per-exercise summary: the
+// point of logging is that the third set is not the first one, and a summary
+// throws exactly that away. `weight` stays 0 for the bodyweight routine, which
+// is what lets both kinds share one table.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workout_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+    exercise TEXT NOT NULL,
+    reps INTEGER NOT NULL,
+    weight REAL NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_metric ON workout_sessions(metric_id, date)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_sets_session ON workout_sets(session_id)');
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
