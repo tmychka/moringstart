@@ -58,3 +58,24 @@ body::before {
     opacity 0.45s ease,
     transform 0.45s ease;
 }
+
+/* A workspace page: one reading column, centred, with the free space either
+   side left as its own track.
+
+   A grid rather than a `max-w` with `mx-auto`, because the margins are a track
+   a block can address: the heading's size marker hangs in the left one, out of
+   the line, so every block on the page starts on the same edge. Code used to
+   claim both tracks for extra width; it takes the whole screen on demand now
+   and keeps the column the rest of the time. */
+.page-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    [content-start] min(820px, 100%) [content-end]
+    minmax(0, 1fr);
+}
+
+.page-content {
+  grid-column: content;
+  min-width: 0;
+}

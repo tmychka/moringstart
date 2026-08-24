@@ -39,6 +39,31 @@ export function lastNDays(count: number, today: Date = new Date()): Date[] {
   return Array.from({ length: count }, (_, i) => addDays(end, i - count + 1));
 }
 
+/**
+ * The Monday of the week `date` falls in. Monday because that is where the week
+ * starts here — a Sunday-first week would put the weekend either side of the
+ * working days and make a "quiet weekend" impossible to see as one block.
+ */
+export function startOfWeek(date: Date = new Date()): Date {
+  const day = startOfDay(date);
+  // getDay() is Sunday-first, so Sunday (0) is six days into the week, not none.
+  return addDays(day, -((day.getDay() + 6) % 7));
+}
+
+/**
+ * `count` whole calendar weeks ending with the one `today` is in, oldest first
+ * — Monday to Sunday, every time.
+ *
+ * The last week runs to its Sunday rather than to today, so the grid it fills
+ * keeps seven columns and every column is one weekday all the way down. Days
+ * still ahead come back as dates, and it is for the caller to draw them as days
+ * that have not happened rather than as days with nothing in them.
+ */
+export function lastNWeeks(count: number, today: Date = new Date()): Date[] {
+  const first = addDays(startOfWeek(today), -7 * (count - 1));
+  return Array.from({ length: count * 7 }, (_, i) => addDays(first, i));
+}
+
 // Consecutive goal-hitting days ending today. A blank today does not break the
 // streak — the day isn't over yet, so counting resumes from yesterday.
 export function currentStreak(

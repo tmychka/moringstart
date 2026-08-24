@@ -153,6 +153,17 @@ export const kg = (value: number): string => value.toFixed(1);
 export const clockOf = (at: string): Date =>
   new Date(`${String(at).replace(" ", "T")}Z`);
 
+/**
+ * Local midnight written the way the backend stores its timestamps — UTC, with
+ * a space instead of the T. Sent alongside a status so the server can compare
+ * an entry's time against the start of *this* day rather than guessing at one.
+ */
+export const dayStartStamp = (now: Date): string =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+
 export interface Span {
   id: number;
   status: string;
@@ -206,24 +217,77 @@ export function spansForDay(log: StatusRow[], day: Date, now: Date): Span[] {
     day.getMonth(),
     day.getDate() + 1
   ).getTime();
-  const edge = Math.min(nextMidnight, now.getTime());
-  if (edge <= start) return [];
+  if (now.getTime() <= start) return [];
 
+  // Bounded by the day itself rather than by `now`, which is read off a clock
+  // that only ticks every half minute: an entry written a moment ago is often
+  // stamped a few seconds *after* the `now` this is holding, and filtering by it
+  // would drop the write until the next tick. Pressing Stop would then do
+  // nothing visible for up to thirty seconds.
   const starts = log
     .map((entry) => ({
       id: entry.id,
       status: entry.status,
       at: clockOf(entry.at).getTime(),
     }))
-    .filter((entry) => entry.at >= start && entry.at < edge)
-    .sort((a, b) => a.at - b.at);
+    .filter((entry) => entry.at >= start && entry.at < nextMidnight)
+    // The id breaks a tie on the second: two statuses set inside the same
+    // second are stamped identically, and without this they come out in
+    // whatever order the log happened to arrive in — which is newest first,
+    // exactly backwards.
+    .sort((a, b) => a.at - b.at || a.id - b.id);
+  if (starts.length === 0) return [];
 
-  return starts.map((entry, i) => ({
-    id: entry.id,
-    status: entry.status,
-    from: (entry.at - start) / 60000,
-    to: ((i + 1 < starts.length ? starts[i + 1].at : edge) - start) / 60000,
-  }));
+  // Where the last span stops: now, or the newest entry when that clock is
+  // behind it. Never past the day's own end.
+  const edge = Math.min(
+    nextMidnight,
+    Math.max(now.getTime(), starts[starts.length - 1].at)
+  );
+
+  return (
+    starts
+      .map((entry, i) => ({
+        id: entry.id,
+        status: entry.status,
+        from: (entry.at - start) / 60000,
+        to: ((i + 1 < starts.length ? starts[i + 1].at : edge) - start) / 60000,
+      }))
+      // A blank entry is a stop: it ends whatever was running — which the line
+      // above has already done, by being the next entry's start — and draws
+      // nothing of its own. Dropped here rather than filtered out of the log,
+      // because it is only useful for the boundary it provides.
+      .filter((span) => span.status !== "")
+  );
+}
+
+/**
+ * Today's newest entry, or null on a day nothing was set.
+ *
+ * What undo works on, rather than the last drawn span: a stop draws nothing and
+ * still has to be takeable back.
+ */
+export function lastEntryToday(log: StatusRow[], now: Date): StatusRow | null {
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+  // Bounded by the day, not by `now`, for the same reason `spansForDay` is: a
+  // just-written entry can sit seconds ahead of the clock this holds, and it is
+  // exactly the entry Stop and Undo are being asked about.
+  const nextMidnight = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1
+  ).getTime();
+  const today = log
+    .filter((entry) => {
+      const at = clockOf(entry.at).getTime();
+      return at >= start && at < nextMidnight;
+    })
+    .sort((a, b) => clockOf(a.at).getTime() - clockOf(b.at).getTime());
+  return today.length > 0 ? today[today.length - 1] : null;
 }
 
 /** Today, by the same rule — the strip beside the picker. */

@@ -147,6 +147,34 @@ const LINE_COMMENT: Record<string, string> = {
 const isWordChar = (ch: string) => /[A-Za-z0-9_$]/.test(ch);
 
 /**
+ * Where the run opened at `start` closes, or -1 when it never does.
+ *
+ * A quote only opens a string if its closing quote is actually there. These
+ * blocks hold notes as often as they hold code, and «ім'я» is an apostrophe in
+ * a Ukrainian word, not the start of a literal — a scanner that assumes
+ * otherwise paints the rest of the sentence green, and then keeps going until
+ * it stumbles on the next apostrophe, wherever in the block that happens to be.
+ *
+ * So the rule is the language's own: ' and " cannot contain a raw newline, so
+ * one that reaches the end of its line was never a string. Backticks may run on,
+ * because template literals really do.
+ */
+const closingQuote = (source: string, start: number, quote: string): number => {
+  const multiline = quote === "`";
+  for (let j = start + 1; j < source.length; j += 1) {
+    const ch = source[j];
+    // A backslash escapes whatever follows, so a quote after one does not close.
+    if (ch === "\\") {
+      j += 1;
+      continue;
+    }
+    if (ch === quote) return j;
+    if (!multiline && ch === "\n") return -1;
+  }
+  return -1;
+};
+
+/**
  * Walks the source once and emits a flat token list. Everything unrecognised
  * stays `plain`, so an unsupported language degrades to uncoloured text rather
  * than to wrong colours.
@@ -192,14 +220,16 @@ export function tokenize(source: string, lang: string): Token[] {
     const ch = source[i];
 
     if (ch === '"' || ch === "'" || ch === "`") {
-      let j = i + 1;
-      // A backslash escapes the next character, so a quote right after one does
-      // not close the string.
-      while (j < source.length && source[j] !== ch) {
-        j += source[j] === "\\" ? 2 : 1;
+      const end = closingQuote(source, i, ch);
+      // Nothing closes it, so it was never a string — an apostrophe in prose,
+      // or a stray quote. It reads as the ordinary character it is.
+      if (end === -1) {
+        plain += ch;
+        i += 1;
+        continue;
       }
-      push("string", source.slice(i, Math.min(j + 1, source.length)));
-      i = j + 1;
+      push("string", source.slice(i, end + 1));
+      i = end + 1;
       continue;
     }
 
