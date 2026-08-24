@@ -1,10 +1,12 @@
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { CODE_LANGS, tokenize, type TokenKind } from "../../highlight";
 import type { BlockContent, BlockType, Theme } from "../../types";
 
@@ -86,12 +88,16 @@ interface BlockProps {
 export function HeadingBlock({ t, content, onChange, onCommit }: BlockProps) {
   const level = content.level === 3 ? 3 : 2;
   return (
-    <div className="flex items-start gap-2">
+    // The size marker hangs in the margin instead of standing in the line. In
+    // the flow it pushed every heading a button's width to the right of the
+    // paragraphs under it, which is exactly the stagger that makes a page of
+    // blocks look assembled rather than set.
+    <div className="relative">
       <button
         type="button"
         onClick={() => onCommit({ ...content, level: level === 2 ? 3 : 2 })}
         title="Switch heading size"
-        className={`mt-1.5 shrink-0 cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 font-mono text-[0.7rem] transition-colors ${t.iconBtn}`}
+        className={`absolute -left-8 top-1.5 cursor-pointer rounded-md border-none bg-transparent px-1.5 py-0.5 font-mono text-[0.7rem] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100 ${t.iconBtn}`}
       >
         H{level}
       </button>
@@ -302,8 +308,11 @@ export function ChecklistBlock({ t, content, onChange, onCommit }: BlockProps) {
 export function CodeBlock({ t, content, onChange, onCommit }: BlockProps) {
   const [editing, setEditing] = useState(!content.code);
   const [copied, setCopied] = useState(false);
+  const [full, setFull] = useState(false);
   const code = content.code ?? "";
   const lang = content.lang ?? "typescript";
+  // Absent means on: blocks written before the toggle existed should wrap too.
+  const wrap = content.wrap !== false;
 
   const copy = async () => {
     await navigator.clipboard?.writeText(code);
@@ -311,63 +320,165 @@ export function CodeBlock({ t, content, onChange, onCommit }: BlockProps) {
     setTimeout(() => setCopied(false), 1400);
   };
 
-  return (
-    <div
-      className={`overflow-hidden rounded-2xl border ${t.rule} ${t.sidebarCard}`}
-    >
-      <div className={`flex items-center gap-2 border-b px-3 py-1.5 ${t.rule}`}>
-        <select
-          value={lang}
-          onChange={(e) => onCommit({ ...content, lang: e.target.value })}
-          aria-label="Code language"
-          className={`cursor-pointer border-none bg-transparent text-[0.7rem] uppercase tracking-[0.12em] outline-none ${t.muted}`}
-        >
-          {CODE_LANGS.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setEditing((on) => !on)}
-            className={`cursor-pointer rounded-md border-none bg-transparent px-2 py-0.5 text-[0.7rem] transition-colors ${t.iconBtn}`}
-          >
-            {editing ? "Done" : "Edit"}
-          </button>
-          <button
-            type="button"
-            onClick={copy}
-            className={`cursor-pointer rounded-md border-none bg-transparent px-2 py-0.5 text-[0.7rem] transition-colors ${t.iconBtn}`}
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-      </div>
+  // The usual way out of anything that has taken over the screen. Bound only
+  // while it has, so a page of collapsed blocks adds no listeners at all.
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setFull(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [full]);
 
-      {editing ? (
-        <AutoTextarea
-          value={code}
-          onChange={(next) => onChange({ ...content, code: next })}
-          onBlur={() => onCommit(content)}
-          placeholder="Paste or write code…"
-          className="px-4 py-3 font-mono text-[0.82rem] leading-[1.6]"
-        />
-      ) : (
-        <pre className="m-0 overflow-x-auto px-4 py-3 font-mono text-[0.82rem] leading-[1.6]">
-          <code>
-            {tokenize(code, lang).map((token, i) => (
-              <span key={i} className={TOKEN_STYLE[token.kind]}>
-                {token.text}
-              </span>
-            ))}
-          </code>
-        </pre>
-      )}
+  const pad = full ? "px-6 py-5" : "px-4 py-3";
+
+  // One header and one body, used by both shapes below. Written once rather
+  // than twice because every control on it — the language, the wrap, the edit —
+  // has to behave identically whichever size the block is being read at.
+  const header = (
+    <div
+      className={`flex shrink-0 items-center gap-2 border-b py-1.5 ${full ? "px-6" : "px-3"} ${t.rule}`}
+    >
+      <select
+        value={lang}
+        onChange={(e) => onCommit({ ...content, lang: e.target.value })}
+        aria-label="Code language"
+        className={`cursor-pointer border-none bg-transparent text-[0.7rem] uppercase tracking-[0.12em] outline-none ${t.muted}`}
+      >
+        {CODE_LANGS.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onCommit({ ...content, wrap: !wrap })}
+          aria-pressed={wrap}
+          title={
+            wrap
+              ? "Long lines wrap — turn off to scroll them instead"
+              : "Long lines scroll — turn on to wrap them"
+          }
+          className={`cursor-pointer rounded-md border-none px-2 py-0.5 text-[0.7rem] transition-colors ${
+            wrap ? t.sidebarItemActive : `bg-transparent ${t.iconBtn}`
+          }`}
+        >
+          Wrap
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing((on) => !on)}
+          className={`cursor-pointer rounded-md border-none bg-transparent px-2 py-0.5 text-[0.7rem] transition-colors ${t.iconBtn}`}
+        >
+          {editing ? "Done" : "Edit"}
+        </button>
+        <button
+          type="button"
+          onClick={copy}
+          className={`cursor-pointer rounded-md border-none bg-transparent px-2 py-0.5 text-[0.7rem] transition-colors ${t.iconBtn}`}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setFull((on) => !on)}
+          aria-pressed={full}
+          title={full ? "Back to the page (Esc)" : "Open full screen"}
+          aria-label={full ? "Close full screen" : "Open full screen"}
+          className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border-none bg-transparent transition-colors ${t.iconBtn}`}
+        >
+          <ExpandIcon collapse={full} />
+        </button>
+      </div>
     </div>
   );
+
+  const body = editing ? (
+    <AutoTextarea
+      value={code}
+      onChange={(next) => onChange({ ...content, code: next })}
+      onBlur={() => onCommit(content)}
+      placeholder="Paste or write code…"
+      className={`${pad} font-mono text-[0.82rem] leading-[1.6]`}
+    />
+  ) : (
+    // Wrapping keeps every newline and every run of spaces the code was
+    // written with — indentation survives — and breaks only the lines that
+    // would otherwise run past the edge. `anywhere` covers what is left: a
+    // long URL or one unbroken string has nowhere to break politely, and
+    // without it that single token would push the scrollbar back on.
+    <pre
+      className={`m-0 ${pad} font-mono text-[0.82rem] leading-[1.6] ${
+        wrap
+          ? "whitespace-pre-wrap [overflow-wrap:anywhere]"
+          : "overflow-x-auto"
+      }`}
+    >
+      <code>
+        {tokenize(code, lang).map((token, i) => (
+          <span key={i} className={TOKEN_STYLE[token.kind]}>
+            {token.text}
+          </span>
+        ))}
+      </code>
+    </pre>
+  );
+
+  if (!full) {
+    return (
+      <div
+        className={`overflow-hidden rounded-2xl border ${t.rule} ${t.sidebarCard}`}
+      >
+        {header}
+        {body}
+      </div>
+    );
+  }
+
+  // On the body, so no ancestor's overflow, transform or stacking context can
+  // clip a block that is meant to be the whole screen. Opaque rather than a
+  // dialog over the page: at this size the code is the thing being read, and
+  // the page showing through would only compete with it.
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${lang} code, full screen`}
+      className={`fixed inset-0 z-50 flex flex-col ${t.surface}`}
+    >
+      {header}
+      <div className="min-h-0 flex-1 overflow-auto">{body}</div>
+    </div>,
+    document.body
+  );
 }
+
+/** Corners pointing out to fill the screen, and in to give it back. */
+const ExpandIcon = ({ collapse }: { collapse: boolean }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-3.5 w-3.5"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.9"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {collapse ? (
+      <>
+        <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+      </>
+    ) : (
+      <>
+        <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+      </>
+    )}
+  </svg>
+);
 
 export function CalloutBlock({ t, content, onChange, onCommit }: BlockProps) {
   const tone =

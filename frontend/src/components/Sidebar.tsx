@@ -27,6 +27,21 @@ const ICONS = {
       <path d="M6.9 12h10.2" />
     </>
   ),
+  timer: (
+    <>
+      <circle cx="12" cy="13.4" r="7.2" />
+      <path d="M12 10v3.4l2.4 1.6M9.7 3.4h4.6" />
+    </>
+  ),
+  // A rope swinging between two handles. The handles are angled away from the
+  // arc rather than sitting on top of it — at this size a straight cap reads as
+  // part of the curve, and the whole thing comes out as a plain letter U.
+  rope: (
+    <>
+      <path d="M7 7.2v2.6a5 5 0 0 0 10 0V7.2" />
+      <path d="M4.9 3.9 7 7.2M19.1 3.9 17 7.2" />
+    </>
+  ),
   checklist: (
     <>
       <path d="M3.8 7.4 5.7 9.3l3.2-3.4" />
@@ -144,6 +159,11 @@ interface SidebarProps {
    * own content.
    */
   variant?: "full" | "minimal";
+  /**
+   * Optional block shown in the space under the nav. Passed in rather than
+   * built here so the sidebar keeps taking everything it draws as props.
+   */
+  support?: ReactNode;
 }
 
 export default function Sidebar({
@@ -156,6 +176,7 @@ export default function Sidebar({
   activePath = "/",
   links = [],
   variant = "full",
+  support,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -168,6 +189,11 @@ export default function Sidebar({
   const narrow = useMediaQuery("(max-width: 767px)");
   const expanded = !collapsed;
   const floating = narrow && expanded;
+
+  // The nav is what the sidebar is for. On a short window there is not room for
+  // it and the support block both — `flex-1` would squeeze the nav into a
+  // scrolling sliver — so the block is the one that gives way.
+  const tallEnough = useMediaQuery("(min-height: 640px)");
 
   useEffect(() => {
     try {
@@ -260,6 +286,11 @@ export default function Sidebar({
             />
           ))}
         </nav>
+
+        {/* Fills the gap between the nav and the footer. Only on an expanded
+            full sidebar with room for it: the rail has no width for prose, and
+            a minimal sidebar is minimal on purpose. */}
+        {full && expanded && tallEnough && support}
 
         <div className={`border-t px-3 py-3 ${t.rule}`}>
           {full && expanded && helpOpen && (

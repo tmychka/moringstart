@@ -1,13 +1,16 @@
 import figureImg from "../assets/human-figure.png";
 
+/**
+ * Fills the height it is given and keeps its own proportions, standing on the
+ * bottom edge. It is placed by the column it sits in rather than by itself —
+ * the page is one panel now, and the figure is the middle of it.
+ */
 export default function HumanFigure() {
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      <img
-        src={figureImg}
-        alt=""
-        className="absolute bottom-[4.5vh] left-1/2 -translate-x-1/2 h-[80vh] w-auto select-none pointer-events-none"
-      />
-    </div>
+    <img
+      src={figureImg}
+      alt=""
+      className="h-full w-auto max-w-full select-none object-contain object-bottom"
+    />
   );
 }

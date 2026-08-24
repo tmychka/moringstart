@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createBlock,
@@ -106,14 +106,20 @@ export default function PageView({ t, page, onRenamed }: PageViewProps) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[820px] px-8 pb-32 pt-10">
-      <div className="mb-6 flex items-start gap-3">
+    // The column is a grid track now rather than a `max-w` on the box, so a
+    // code block can be handed the full width while everything else keeps the
+    // reading measure. See `.page-grid` in index.css.
+    <div className="page-grid w-full gap-y-1 px-8 pb-32 pt-10">
+      <div className="page-content mb-6 flex items-start gap-3">
         <div className="relative">
+          {/* The glyph sits at the button's left edge rather than centred in
+              it, so the page opens on the same line the blocks below start on
+              — a comfortable hit target should not cost an indent. */}
           <button
             type="button"
             onClick={() => setIconOpen((open) => !open)}
             title="Change icon"
-            className={`grid h-11 w-11 cursor-pointer place-items-center rounded-xl border-none bg-transparent p-0 text-[1.6rem] leading-none transition-colors ${t.rowHover}`}
+            className={`flex h-11 w-11 cursor-pointer items-center justify-start rounded-xl border-none bg-transparent p-0 text-[1.6rem] leading-none transition-colors ${t.rowHover}`}
           >
             {page.icon || "📄"}
           </button>
@@ -153,9 +159,12 @@ export default function PageView({ t, page, onRenamed }: PageViewProps) {
       </div>
 
       {isLoading ? (
-        <p className={`text-[0.85rem] ${t.muted}`}>Loading…</p>
+        <p className={`page-content text-[0.85rem] ${t.muted}`}>Loading…</p>
       ) : (
-        <div className="flex flex-col gap-1">
+        // `contents` rather than a wrapper box: the rows have to be grid items
+        // of the page themselves, or a code block inside could only ever be as
+        // wide as the wrapper holding it.
+        <div className="contents">
           {blocks.map((block, i) => (
             <BlockRow
               key={block.id}
@@ -172,7 +181,7 @@ export default function PageView({ t, page, onRenamed }: PageViewProps) {
         </div>
       )}
 
-      <div className="relative mt-3">
+      <div className="page-content relative mt-3">
         <button
           type="button"
           onClick={() => setPickerOpen((open) => !open)}
@@ -245,20 +254,78 @@ function BlockRow({
   onMoveDown: () => void;
 }) {
   const [draft, patch] = useDraft(block.content, block.updated_at);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
+  const run = (action: () => void) => {
+    setMenuOpen(false);
+    action();
+  };
 
   return (
-    <div className="group relative rounded-lg px-1 py-0.5">
-      <div className="absolute -top-1 right-0 z-10 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-        <Ctl t={t} label="Move up" onClick={onMoveUp} disabled={first}>
-          ↑
-        </Ctl>
-        <Ctl t={t} label="Move down" onClick={onMoveDown} disabled={last}>
-          ↓
-        </Ctl>
-        <Ctl t={t} label="Delete block" onClick={onRemove}>
-          ✕
-        </Ctl>
+    // Every block on the same column, and no padding of its own: a row inset
+    // even a few pixels from the one above reads as a mistake rather than as
+    // spacing. Code used to break out to the full page width, which is where
+    // the ragged left edge came from — it takes the whole screen on demand now,
+    // through the button in its own header, and lines up with everything else
+    // until then.
+    <div className="page-content group relative rounded-lg py-0.5">
+      {/* In the margin, opposite the heading's size marker, rather than over
+          the top-right corner of the block. Three buttons sitting on the
+          content covered whatever was underneath them — on a link block, the
+          Open button itself. One button, and it stands outside the column. */}
+      <div
+        className={`absolute -right-9 top-0.5 z-20 transition-opacity focus-within:opacity-100 group-hover:opacity-100 ${
+          menuOpen ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label="Block actions"
+          title="Block actions"
+          className={`grid h-7 w-7 cursor-pointer place-items-center rounded-md border-none bg-transparent p-0 text-[0.9rem] leading-none transition-colors ${t.iconBtn}`}
+        >
+          ⋯
+        </button>
+
+        {menuOpen && (
+          <div
+            role="menu"
+            aria-label="Block actions"
+            className={`absolute right-0 top-8 z-30 w-[152px] rounded-xl border p-1.5 ${t.popover}`}
+          >
+            <MenuItem t={t} onClick={() => run(onMoveUp)} disabled={first}>
+              ↑ Move up
+            </MenuItem>
+            <MenuItem t={t} onClick={() => run(onMoveDown)} disabled={last}>
+              ↓ Move down
+            </MenuItem>
+            <MenuItem t={t} onClick={() => run(onRemove)}>
+              ✕ Delete
+            </MenuItem>
+          </div>
+        )}
       </div>
+
+      {menuOpen && (
+        <button
+          type="button"
+          aria-label="Close block actions"
+          onClick={() => setMenuOpen(false)}
+          className="fixed inset-0 z-10 cursor-default border-none bg-transparent p-0"
+        />
+      )}
 
       <BlockBody
         t={t}
@@ -278,27 +345,24 @@ function BlockRow({
   );
 }
 
-function Ctl({
+function MenuItem({
   t,
-  label,
   onClick,
   disabled,
   children,
 }: {
   t: Theme;
-  label: string;
   onClick: () => void;
   disabled?: boolean;
-  children: string;
+  children: ReactNode;
 }) {
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={`grid h-6 w-6 place-items-center rounded-md border-none p-0 text-[0.72rem] transition-colors disabled:opacity-25 ${t.sidebarCard} ${t.iconBtn} ${
+      className={`block w-full rounded-lg border-none bg-transparent px-2 py-1 text-left text-[0.78rem] transition-colors disabled:opacity-30 ${t.rowHover} ${
         disabled ? "cursor-default" : "cursor-pointer"
       }`}
     >

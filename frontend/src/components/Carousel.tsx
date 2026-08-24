@@ -167,7 +167,12 @@ export default function Carousel({ children, initial = 0 }: CarouselProps) {
         ))}
       </div>
 
-      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
+      {/* The dots are gone from the page, not from the app. Swiping, the arrow
+          keys and the trackpad were always the way this is driven; these
+          buttons are what is left for a keyboard or a screen reader, so they
+          stay in the tree and come back into view the moment one is focused
+          rather than leaving that route with no visible target. */}
+      <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
         {slides.map((slide, i) => (
           <button
             key={keyFor(slide, i)}
@@ -181,8 +186,8 @@ export default function Carousel({ children, initial = 0 }: CarouselProps) {
               borderColor: DOT_COLOR,
               backgroundColor: i === index ? DOT_COLOR : "transparent",
             }}
-            className={`h-2 rounded-full border cursor-pointer p-0 transition-all duration-300 ${
-              i === index ? "w-6" : "w-2"
+            className={`sr-only cursor-pointer rounded-full border p-0 transition-all duration-300 focus-visible:not-sr-only focus-visible:h-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+              i === index ? "focus-visible:w-6" : "focus-visible:w-2"
             }`}
           />
         ))}

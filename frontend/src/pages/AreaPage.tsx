@@ -3,6 +3,7 @@ import { Navigate, useParams, useNavigate } from "react-router-dom";
 import StepsTracker from "../components/StepsTracker";
 import Developer from "../components/Developer";
 import EnglishWords from "../components/EnglishWords";
+import Training from "../components/Training";
 import Todos from "./Todos";
 import { areaBySlug, type Area } from "../areas";
 import { topicBySlug } from "../developerTopics";
@@ -10,6 +11,7 @@ import {
   DEFAULT_ENGLISH_SECTION,
   englishSectionBySlug,
 } from "../englishSections";
+import { DEFAULT_TRAINING_SECTION, trainingSectionBySlug } from "../training";
 import { labelClass, useTheme } from "../theme";
 import { useBackGesture } from "../useBackGesture";
 
@@ -50,6 +52,19 @@ export default function AreaPage() {
       );
     case "steps":
       return <StepsTracker />;
+    // Two sections, so the bare area URL lands on the first — same as English,
+    // and for the same reason: the sidebar always marks the page you're on.
+    case "training": {
+      const trainingSection = trainingSectionBySlug(section);
+      return trainingSection ? (
+        <Training section={trainingSection.slug} />
+      ) : (
+        <Navigate
+          to={`/${area.slug}/${DEFAULT_TRAINING_SECTION.slug}`}
+          replace
+        />
+      );
+    }
     case "soon":
       return <ComingSoon area={area} />;
   }

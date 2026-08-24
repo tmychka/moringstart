@@ -1,19 +1,17 @@
-import HumanFigure from "../components/HumanFigure";
-import AreasOverlay from "../components/AreasOverlay";
+import Jarvis from "../components/Jarvis";
+import { useTheme } from "../theme";
+import useNow from "../useNow";
 
 export default function Home() {
+  const { t } = useTheme();
+  const now = useNow();
+
   return (
-    <div className="relative w-screen h-screen bg-white overflow-hidden">
-      <HumanFigure />
-
-      <AreasOverlay />
-
-      {/* App title */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-20">
-        <p className="m-0 text-[0.65rem] tracking-[0.3em] uppercase text-black font-light">
-          Morning Start
-        </p>
-      </div>
+    // No background of its own: the app-wide treatment is painted on one fixed
+    // layer behind everything (see index.css), and a ground here would cover it.
+    // The whole screen is a single panel, which `Jarvis` draws.
+    <div className={`relative h-screen w-screen overflow-hidden ${t.page}`}>
+      <Jarvis t={t} now={now} />
     </div>
   );
 }

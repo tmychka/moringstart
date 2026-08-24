@@ -198,100 +198,110 @@ function DeveloperHub({ t, id }: { t: Theme; id: MetricId }) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          {notes.length === 0 && (
-            <p className={`py-6 text-center text-[0.92rem] ${t.muted}`}>
-              No entries yet. Add your first one above.
-            </p>
-          )}
-          {notes.map((note) => (
-            <article key={note.id} className={cardClass(t)}>
-              <div className="mb-2.5 flex items-center justify-between gap-3">
-                <time className={`text-[0.78rem] ${t.muted}`}>
-                  {fmtDate(note.created_at)}
-                </time>
-                <div className="flex shrink-0 gap-1">
-                  {editingId !== note.id && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setLinkModeId(
-                            linkModeId === note.id ? null : note.id
-                          );
-                          setActiveWord(null);
-                        }}
-                        className={
-                          linkModeId === note.id
-                            ? `cursor-pointer rounded-md border-none px-2 py-0.5 text-[0.8rem] font-medium ${t.toggleOn}`
-                            : linkBtnClass(t)
-                        }
-                      >
-                        {linkModeId === note.id ? "Done linking" : "Edit links"}
-                      </button>
-                      <button
-                        onClick={() => startEdit(note)}
-                        className={linkBtnClass(t)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => remove(note.id)}
-                        className={linkBtnClass(t)}
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {editingId === note.id ? (
-                <div>
-                  <textarea
-                    value={editDraft}
-                    onChange={(e) => setEditDraft(e.target.value)}
-                    rows={4}
-                    className={textareaClass(t)}
-                  />
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <button
-                      onClick={() => saveEdit(note)}
-                      disabled={!editDraft.trim()}
-                      className={primaryBtnClass(t)}
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className={`cursor-pointer rounded-2xl border bg-transparent px-[18px] py-2.5 text-[0.66rem] uppercase tracking-[0.18em] transition-colors ${t.outlineBtn}`}
-                    >
-                      Cancel
-                    </button>
+        {notes.length === 0 ? (
+          <p className={`py-6 text-center text-[0.92rem] ${t.muted}`}>
+            No entries yet. Add your first one above.
+          </p>
+        ) : (
+          // Masonry over a stack: entries are a few lines at most, so columns
+          // keep the line length readable and fit far more of the feed on
+          // screen. The column width drives the count, so a narrow window
+          // falls back to a single column on its own.
+          <div className="columns-[30rem] gap-4">
+            {notes.map((note) => (
+              <article
+                key={note.id}
+                className={`mb-4 break-inside-avoid ${cardClass(t)}`}
+              >
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <time className={`text-[0.78rem] ${t.muted}`}>
+                    {fmtDate(note.created_at)}
+                  </time>
+                  <div className="flex shrink-0 gap-1">
+                    {editingId !== note.id && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setLinkModeId(
+                              linkModeId === note.id ? null : note.id
+                            );
+                            setActiveWord(null);
+                          }}
+                          className={
+                            linkModeId === note.id
+                              ? `cursor-pointer rounded-md border-none px-2 py-0.5 text-[0.8rem] font-medium ${t.toggleOn}`
+                              : linkBtnClass(t)
+                          }
+                        >
+                          {linkModeId === note.id
+                            ? "Done linking"
+                            : "Edit links"}
+                        </button>
+                        <button
+                          onClick={() => startEdit(note)}
+                          className={linkBtnClass(t)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => remove(note.id)}
+                          className={linkBtnClass(t)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <NoteBody
-                  t={t}
-                  note={note}
-                  linkMode={linkModeId === note.id}
-                  activeWord={activeWord}
-                  onWordClick={(wordIndex) =>
-                    setActiveWord({
-                      noteId: note.id,
-                      wordIndex,
-                      draft: note.links[wordIndex] || "",
-                    })
-                  }
-                  onDraftChange={(draft) =>
-                    setActiveWord((a) => (a ? { ...a, draft } : a))
-                  }
-                  onSaveLink={() => saveLink(note)}
-                  onCancelLink={() => setActiveWord(null)}
-                />
-              )}
-            </article>
-          ))}
-        </div>
+
+                {editingId === note.id ? (
+                  <div>
+                    <textarea
+                      value={editDraft}
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      rows={4}
+                      className={textareaClass(t)}
+                    />
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <button
+                        onClick={() => saveEdit(note)}
+                        disabled={!editDraft.trim()}
+                        className={primaryBtnClass(t)}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className={`cursor-pointer rounded-2xl border bg-transparent px-[18px] py-2.5 text-[0.66rem] uppercase tracking-[0.18em] transition-colors ${t.outlineBtn}`}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <NoteBody
+                    t={t}
+                    note={note}
+                    linkMode={linkModeId === note.id}
+                    activeWord={activeWord}
+                    onWordClick={(wordIndex) =>
+                      setActiveWord({
+                        noteId: note.id,
+                        wordIndex,
+                        draft: note.links[wordIndex] || "",
+                      })
+                    }
+                    onDraftChange={(draft) =>
+                      setActiveWord((a) => (a ? { ...a, draft } : a))
+                    }
+                    onSaveLink={() => saveLink(note)}
+                    onCancelLink={() => setActiveWord(null)}
+                  />
+                )}
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
