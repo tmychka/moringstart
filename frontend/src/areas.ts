@@ -9,7 +9,8 @@
 import type { IconName } from "./components/Sidebar";
 
 /** Which page an area opens. */
-export type AreaKind = "todos" | "notebook" | "vocabulary" | "steps" | "soon";
+export type AreaKind =
+  "todos" | "notebook" | "vocabulary" | "steps" | "training" | "soon";
 
 export interface Area {
   /** First URL segment: `/developer`, `/english`, … */
@@ -51,11 +52,12 @@ export const ENGLISH: Area = {
   kind: "vocabulary",
 };
 
-export const TRAINING: Area = {
+export const TRAINING: StoredArea = {
   slug: "training",
   label: "Training",
   icon: "dumbbell",
-  kind: "soon",
+  kind: "training",
+  metricId: 3,
 };
 
 export const STEPS: StoredArea = {

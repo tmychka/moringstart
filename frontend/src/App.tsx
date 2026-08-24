@@ -3,6 +3,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AreaPage from "./pages/AreaPage";
 import Carousel from "./components/Carousel";
+import ChatLauncher from "./components/ChatLauncher";
 import Dashboard from "./components/Dashboard";
 import Home from "./pages/Home";
 import { useTheme } from "./theme";
@@ -32,6 +33,10 @@ export default function App() {
         <Route path="/:area/:section" element={<AreaPage />} />
         <Route path="/:area/:section/:pageId" element={<AreaPage />} />
       </Routes>
+      {/* Outside the routes, so the chat is one click away from every page
+          rather than only from the one panel that happens to draw the same
+          numbers. */}
+      <ChatLauncher />
       <ToastContainer
         position="bottom-right"
         autoClose={3500}
