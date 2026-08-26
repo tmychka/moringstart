@@ -149,6 +149,50 @@ db.exec(`
 db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_metric ON workout_sessions(metric_id, date)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_sets_session ON workout_sets(session_id)');
 
+// A marathon is a run of N days you commit to, starting on a chosen day. Like
+// the profile it hangs off no `metric_id`: it is something the person is doing,
+// not a section of the app. Several can exist — an abandoned one is deleted,
+// but a finished one stays as history — so "the current marathon" is a query
+// rather than a flag, and nothing has to be cleared when a run ends.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS marathons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    days INTEGER NOT NULL,
+    start_date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// What the marathon is made of. `day` is what splits the two kinds the card
+// offers from one table: NULL is a rule that applies to every day of the run,
+// and a number 1…days is a one-off that belongs to that day alone. They are the
+// same thing to everything downstream — something to be done on a date — so
+// splitting them into two tables would only mean reading both everywhere.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS marathon_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    marathon_id INTEGER NOT NULL REFERENCES marathons(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    day INTEGER,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// One row per item actually done, on the day it was done. Keyed by (item, date)
+// rather than carrying a `done` column on the item, because a daily rule is one
+// row that has to be answerable thirty times over — once per day of the run.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS marathon_ticks (
+    item_id INTEGER NOT NULL REFERENCES marathon_items(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    PRIMARY KEY (item_id, date)
+  )
+`);
+
+db.exec('CREATE INDEX IF NOT EXISTS idx_marathon_items ON marathon_items(marathon_id)');
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
