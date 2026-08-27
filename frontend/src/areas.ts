@@ -10,7 +10,13 @@ import type { IconName } from "./components/Sidebar";
 
 /** Which page an area opens. */
 export type AreaKind =
-  "todos" | "notebook" | "vocabulary" | "steps" | "training" | "soon";
+  | "todos"
+  | "notebook"
+  | "vocabulary"
+  | "steps"
+  | "training"
+  | "marathon"
+  | "soon";
 
 export interface Area {
   /** First URL segment: `/developer`, `/english`, … */
@@ -68,8 +74,24 @@ export const STEPS: StoredArea = {
   metricId: 4,
 };
 
+/** The run in progress, whatever it is. Like vocabulary it has no metric row —
+ *  the backend keeps marathons in tables of their own. */
+export const MARATHON: Area = {
+  slug: "marathon",
+  label: "Marathon",
+  icon: "timer",
+  kind: "marathon",
+};
+
 /** In sidebar order. */
-export const AREAS: Area[] = [TODOS, DEVELOPER, ENGLISH, TRAINING, STEPS];
+export const AREAS: Area[] = [
+  TODOS,
+  DEVELOPER,
+  ENGLISH,
+  TRAINING,
+  STEPS,
+  MARATHON,
+];
 
 export const areaBySlug = (slug: string | undefined): Area | undefined =>
   AREAS.find((area) => area.slug === slug);
