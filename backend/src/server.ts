@@ -7,12 +7,18 @@ import {
   isProfileMode,
   isRoadmapStatus,
   isWorkoutKind,
+  MARATHON_MAX_DAYS,
+  MARATHON_MIN_DAYS,
   WORKOUT_KINDS,
   type Block,
   type BlockRow,
   type ErrorBody,
   type Folder,
   type FolderWithPages,
+  type Marathon,
+  type MarathonItem,
+  type MarathonRow,
+  type MarathonTick,
   type Milestone,
   type Note,
   type NoteRow,
@@ -886,6 +892,233 @@ app.delete('/workouts/sets/:setId', (req, res: Response<ErrorBody | void>) => {
   const info = execute('DELETE FROM workout_sets WHERE id = ?', req.params.setId);
   if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
   return res.status(204).end();
+});
+
+// --- Marathon ---
+
+/**
+ * A day key shifted by `n` days. Built in UTC because the keys are plain dates
+ * with no time in them: local arithmetic would shift by 23 or 25 hours across a
+ * daylight-saving boundary and land a day either side of where it should.
+ */
+const shiftKey = (key: string, n: number): string => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+
+/** Said by both the route that starts a run and the one that resizes it. */
+const BAD_DAYS = `days must be an integer between ${MARATHON_MIN_DAYS} and ${MARATHON_MAX_DAYS}`;
+
+const isRunLength = (value: unknown): boolean =>
+  Number.isInteger(Number(value)) &&
+  Number(value) >= MARATHON_MIN_DAYS &&
+  Number(value) <= MARATHON_MAX_DAYS;
+
+/** The whole marathon: the run, everything in it, and everything ticked off. */
+const readMarathon = (id: number | string): Marathon | undefined => {
+  const row = queryOne<MarathonRow>('SELECT * FROM marathons WHERE id = ?', id);
+  if (!row) return undefined;
+  return {
+    ...row,
+    items: queryAll<MarathonItem>(
+      'SELECT * FROM marathon_items WHERE marathon_id = ? ORDER BY position ASC, id ASC',
+      row.id,
+    ),
+    ticks: queryAll<MarathonTick>(
+      `SELECT t.item_id, t.date FROM marathon_ticks t
+       JOIN marathon_items i ON i.id = t.item_id
+       WHERE i.marathon_id = ?`,
+      row.id,
+    ),
+  };
+};
+
+/**
+ * `day` as an item can carry it: null (or absent) is a rule that runs every day
+ * of the marathon, a whole number in range is a one-off pinned to that day.
+ * Returns a message instead when it is neither.
+ */
+const readDay = (value: unknown, days: number): number | null | string => {
+  if (value === undefined || value === null) return null;
+  const day = Number(value);
+  if (!Number.isInteger(day) || day < 1 || day > days) {
+    return `day must be null or an integer between 1 and ${days}`;
+  }
+  return day;
+};
+
+/**
+ * The marathon on screen: the most recent one. A run that has ended is still
+ * handed back rather than hidden — the card shows how it went until another is
+ * started, and only starting one moves it into the past.
+ */
+app.get('/marathon', (_req, res: Response<Marathon | null>) => {
+  const latest = queryOne<{ id: number }>('SELECT id FROM marathons ORDER BY id DESC LIMIT 1');
+  res.json(latest ? (readMarathon(latest.id) ?? null) : null);
+});
+
+app.post('/marathon', (req, res: Response<Marathon | ErrorBody>) => {
+  const body = bodyOf(req);
+  if (!isRunLength(body.days)) return res.status(400).json({ error: BAD_DAYS });
+  if (!isDate(body.startDate))
+    return res.status(400).json({ error: 'startDate must be YYYY-MM-DD' });
+
+  const info = execute(
+    'INSERT INTO marathons (title, days, start_date) VALUES (?, ?, ?)',
+    trimmed(body.title)?.slice(0, 80) ?? 'Marathon',
+    Number(body.days),
+    body.startDate,
+  );
+  return res.status(201).json(required(readMarathon(insertedId(info)), 'marathon'));
+});
+
+/**
+ * Renames a run or changes its length. Shortening one drops the items pinned
+ * past the new end: they belong to days the marathon no longer has, and leaving
+ * them would mean rows nothing can ever show or tick off.
+ */
+app.put('/marathon/:id', (req, res: Response<Marathon | ErrorBody>) => {
+  const { id } = req.params;
+  const marathon = queryOne<MarathonRow>('SELECT * FROM marathons WHERE id = ?', id);
+  if (!marathon) return res.status(404).json({ error: 'not found' });
+
+  const { title, days } = bodyOf(req);
+  const sets: string[] = [];
+  const values: SQLInputValue[] = [];
+  if (title !== undefined) {
+    const clean = trimmed(title);
+    if (!clean) return res.status(400).json({ error: 'title required' });
+    sets.push('title = ?');
+    values.push(clean.slice(0, 80));
+  }
+  if (days !== undefined) {
+    if (!isRunLength(days)) return res.status(400).json({ error: BAD_DAYS });
+    sets.push('days = ?');
+    values.push(Number(days));
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+  values.push(id);
+  execute(`UPDATE marathons SET ${sets.join(', ')} WHERE id = ?`, ...values);
+  if (days !== undefined) {
+    execute(
+      `DELETE FROM marathon_ticks WHERE item_id IN
+       (SELECT id FROM marathon_items WHERE marathon_id = ? AND day > ?)`,
+      id,
+      Number(days),
+    );
+    execute('DELETE FROM marathon_items WHERE marathon_id = ? AND day > ?', id, Number(days));
+  }
+  return res.json(required(readMarathon(id), 'marathon'));
+});
+
+app.delete('/marathon/:id', (req, res: Response<ErrorBody | void>) => {
+  const { id } = req.params;
+  execute(
+    'DELETE FROM marathon_ticks WHERE item_id IN (SELECT id FROM marathon_items WHERE marathon_id = ?)',
+    id,
+  );
+  execute('DELETE FROM marathon_items WHERE marathon_id = ?', id);
+  const info = execute('DELETE FROM marathons WHERE id = ?', id);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.status(204).end();
+});
+
+app.post('/marathon/:id/items', (req, res: Response<MarathonItem | ErrorBody>) => {
+  const { id } = req.params;
+  const marathon = queryOne<MarathonRow>('SELECT * FROM marathons WHERE id = ?', id);
+  if (!marathon) return res.status(404).json({ error: 'marathon not found' });
+
+  const text = trimmed(bodyOf(req).text);
+  if (!text) return res.status(400).json({ error: 'text required' });
+  const day = readDay(bodyOf(req).day, marathon.days);
+  if (typeof day === 'string') return res.status(400).json({ error: day });
+
+  const info = execute(
+    'INSERT INTO marathon_items (marathon_id, text, day, position) VALUES (?, ?, ?, ?)',
+    id,
+    text.slice(0, 200),
+    day,
+    nextPosition('marathon_items', 'marathon_id = ?', id),
+  );
+  const row = queryOne<MarathonItem>('SELECT * FROM marathon_items WHERE id = ?', insertedId(info));
+  return res.status(201).json(required(row, 'item'));
+});
+
+app.put('/marathon/items/:itemId', (req, res: Response<MarathonItem | ErrorBody>) => {
+  const { itemId } = req.params;
+  const item = queryOne<MarathonItem>('SELECT * FROM marathon_items WHERE id = ?', itemId);
+  if (!item) return res.status(404).json({ error: 'not found' });
+  const marathon = required(
+    queryOne<MarathonRow>('SELECT * FROM marathons WHERE id = ?', item.marathon_id),
+    'marathon',
+  );
+
+  const body = bodyOf(req);
+  const sets: string[] = [];
+  const values: SQLInputValue[] = [];
+  if (body.text !== undefined) {
+    const text = trimmed(body.text);
+    if (!text) return res.status(400).json({ error: 'text required' });
+    sets.push('text = ?');
+    values.push(text.slice(0, 200));
+  }
+  // null is a real value here — it turns a one-off into a rule for every day.
+  if ('day' in body) {
+    const day = readDay(body.day, marathon.days);
+    if (typeof day === 'string') return res.status(400).json({ error: day });
+    sets.push('day = ?');
+    values.push(day);
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+  values.push(itemId);
+  execute(`UPDATE marathon_items SET ${sets.join(', ')} WHERE id = ?`, ...values);
+  const row = queryOne<MarathonItem>('SELECT * FROM marathon_items WHERE id = ?', itemId);
+  return res.json(required(row, 'item'));
+});
+
+app.delete('/marathon/items/:itemId', (req, res: Response<ErrorBody | void>) => {
+  const { itemId } = req.params;
+  execute('DELETE FROM marathon_ticks WHERE item_id = ?', itemId);
+  const info = execute('DELETE FROM marathon_items WHERE id = ?', itemId);
+  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
+  return res.status(204).end();
+});
+
+/**
+ * Marks an item done on a day, or takes the mark back. The date is checked
+ * against the run rather than trusted: a tick outside the window is a bug on
+ * the way in, and stored it would be a day the marathon never had.
+ */
+app.put('/marathon/items/:itemId/tick', (req, res: Response<MarathonTick[] | ErrorBody>) => {
+  const { itemId } = req.params;
+  const item = queryOne<MarathonItem>('SELECT * FROM marathon_items WHERE id = ?', itemId);
+  if (!item) return res.status(404).json({ error: 'not found' });
+  const marathon = required(
+    queryOne<MarathonRow>('SELECT * FROM marathons WHERE id = ?', item.marathon_id),
+    'marathon',
+  );
+
+  const { date, done } = bodyOf(req);
+  if (!isDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  if (typeof done !== 'boolean') return res.status(400).json({ error: 'done must be a boolean' });
+  if (date < marathon.start_date || date > shiftKey(marathon.start_date, marathon.days - 1)) {
+    return res.status(400).json({ error: 'date is outside the marathon' });
+  }
+  // A one-off is only ever done on the day it was pinned to.
+  if (item.day !== null && date !== shiftKey(marathon.start_date, item.day - 1)) {
+    return res.status(400).json({ error: "date is not this item's day" });
+  }
+
+  if (done) {
+    execute('INSERT OR IGNORE INTO marathon_ticks (item_id, date) VALUES (?, ?)', itemId, date);
+  } else {
+    execute('DELETE FROM marathon_ticks WHERE item_id = ? AND date = ?', itemId, date);
+  }
+  return res.json(
+    queryAll<MarathonTick>('SELECT item_id, date FROM marathon_ticks WHERE item_id = ?', itemId),
+  );
 });
 
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
