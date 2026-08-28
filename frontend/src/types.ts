@@ -116,6 +116,44 @@ export interface ProfileUpdate {
   dayStart?: string;
 }
 
+// --- Marathon: a run of N days you commit to ---
+
+/** The shortest and longest run the server will accept. */
+export const MARATHON_MIN_DAYS = 1;
+export const MARATHON_MAX_DAYS = 365;
+
+/**
+ * One thing the marathon asks of you. `day` null is a rule that applies to
+ * every day of the run; a number 1…days pins it to that day alone.
+ */
+export interface MarathonItem {
+  id: number;
+  marathon_id: number;
+  text: string;
+  day: number | null;
+  position: number;
+  created_at: string;
+}
+
+/** One item marked done on one day. */
+export interface MarathonTick {
+  item_id: number;
+  date: string;
+}
+
+/** The whole marathon in one request: the run, its items and what is ticked. */
+export interface Marathon {
+  id: number;
+  title: string;
+  /** How long the run is, in days. */
+  days: number;
+  /** The local day it begins, YYYY-MM-DD. */
+  start_date: string;
+  created_at: string;
+  items: MarathonItem[];
+  ticks: MarathonTick[];
+}
+
 // --- Request bodies ---
 
 export interface NoteUpdate {

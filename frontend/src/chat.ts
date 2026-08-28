@@ -17,10 +17,14 @@ import {
   parseSqlDate,
   startOfWeek,
 } from "./dashboardStats";
-import { kg } from "./jarvis";
+import { kg, statusTotals, todaySpans } from "./jarvis";
+import { dayNow, loadOfDay, progressOf, tickSet } from "./marathon";
+import { topicBySlug } from "./developerTopics";
 import { daysSince, days as dayWord, plural } from "./plural";
 import { startOfMonth } from "./statusMonth";
 import { fmt, toKey } from "./stepsUtil";
+import { formatMinutes } from "./todos";
+import { planOf, weekStreak } from "./training";
 import type { Signals } from "./briefing";
 
 /** Everything the chat can read — the same signals the briefing reads. */
@@ -80,6 +84,11 @@ const WEIGHT = ["ваг", "вазі", "важ", "weight", " кг", "kg"];
 const WORDS = ["слов", "слів", "англій", "word", "english", "vocab"];
 const NOTES = ["нотат", "note", "запис"];
 const ROADMAP = ["roadmap", "роадмап", "етап", "milestone"];
+const TRAINING = ["трену", "качал", "workout", "training", "підход", "спорт"];
+const MARATHON = ["марафон", "marathon", "забіг"];
+// "чим займався" is the same question as "які статуси" — the log is the only
+// thing that can answer either.
+const STATUS = ["статус", "status", "займ", "куди пішов день", "день пройш"];
 const SUMMARY = ["як справи", "підсум", "загал", "коротк", "summary", "how am"];
 
 /** How long ago something was, in the words a person would use for it. */
@@ -286,16 +295,53 @@ function answerWords(ctx: ChatContext, period: Period): Reply {
   };
 }
 
-function answerNotes(ctx: ChatContext): Reply {
+function answerNotes(ctx: ChatContext, period: Period | null): Reply {
   if (ctx.devNotes.length === 0) {
     return { kind: "answer", text: "Нотаток ще немає.", source: "нотатки" };
   }
-  const newest = Math.max(
-    ...ctx.devNotes.map((note) => parseSqlDate(note.updated_at).getTime())
-  );
+
+  const stamped = ctx.devNotes.map((note) => ({
+    note,
+    at: parseSqlDate(note.updated_at).getTime(),
+  }));
+  const newest = Math.max(...stamped.map(({ at }) => at));
+  const total = ctx.devNotes.length;
+
+  // "скільки нотаток цього тижня" is a different question from "скільки
+  // нотаток", and the period is the only thing that says which was asked.
+  if (period) {
+    const from = period.days[0].getTime();
+    const within = stamped.filter(({ at }) => at >= from).length;
+    return {
+      kind: "answer",
+      text: `${within} ${plural(within, "нотатка", "нотатки", "нотаток")} ${period.label}. Разом ${total}, остання ${ago(newest, ctx.now)}.`,
+      source: "нотатки",
+    };
+  }
+
+  // Which subjects they sit under, biggest first — the breakdown the notes page
+  // shows by folder and no single number can carry. Unfiled notes are counted
+  // apart rather than listed as a subject of their own: "без теми — 10" as the
+  // only entry of a breakdown is the total said twice.
+  const bySubject = new Map<string, number>();
+  for (const { note } of stamped) {
+    if (!note.topic) continue;
+    bySubject.set(note.topic, (bySubject.get(note.topic) ?? 0) + 1);
+  }
+  const filed = [...bySubject.values()].reduce((sum, n) => sum + n, 0);
+  const spread = [...bySubject]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([topic, count]) => `${topicBySlug(topic)?.label ?? topic} — ${count}`)
+    .join(", ");
+
+  const tail = spread
+    ? ` По темах: ${spread}${total > filed ? `, без теми — ${total - filed}` : ""}.`
+    : " Жодна не розкладена по темах.";
+
   return {
     kind: "answer",
-    text: `${ctx.devNotes.length} ${plural(ctx.devNotes.length, "нотатка", "нотатки", "нотаток")}, остання ${ago(newest, ctx.now)}.`,
+    text: `${total} ${plural(total, "нотатка", "нотатки", "нотаток")}, остання ${ago(newest, ctx.now)}.${tail}`,
     source: "нотатки",
   };
 }
@@ -316,6 +362,132 @@ function answerRoadmap(ctx: ChatContext): Reply {
   };
 }
 
+/** Sessions with sets in them — see `trained` in briefing.ts for the why. */
+const sessions = (ctx: ChatContext) =>
+  ctx.workouts.filter((session) => session.sets.length > 0);
+
+function answerTraining(ctx: ChatContext, period: Period): Reply {
+  const done = sessions(ctx);
+  if (done.length === 0) {
+    return {
+      kind: "answer",
+      text: "Тренувань ще не записано.",
+      source: "тренування",
+    };
+  }
+
+  const within = new Set(period.days.map(toKey));
+  const inPeriod = done.filter((session) => within.has(session.date));
+  const last = done
+    .map((session) => session.date)
+    .sort()
+    .pop() as string;
+  const [y, m, d] = last.split("-").map(Number);
+  const lastSession = done.find((session) => session.date === last);
+  const streak = weekStreak(
+    new Set(done.map((session) => session.date)),
+    ctx.now
+  );
+
+  const sets = inPeriod.reduce(
+    (count, session) => count + session.sets.length,
+    0
+  );
+  const streakLine =
+    streak >= 2
+      ? ` Тренування ${streak} ${plural(streak, "тиждень", "тижні", "тижнів")} поспіль.`
+      : "";
+
+  return {
+    kind: "answer",
+    text: `${inPeriod.length} ${plural(inPeriod.length, "тренування", "тренування", "тренувань")} ${period.label}${
+      sets > 0
+        ? `, ${sets} ${plural(sets, "підхід", "підходи", "підходів")}`
+        : ""
+    }. Останнє — «${planOf((lastSession ?? done[0]).kind).label}» ${ago(new Date(y, m - 1, d).getTime(), ctx.now)}.${streakLine}`,
+    source: "тренування",
+  };
+}
+
+function answerMarathon(ctx: ChatContext): Reply {
+  const { marathon } = ctx;
+  if (!marathon) {
+    return {
+      kind: "answer",
+      text: "Марафону зараз немає. Почати можна на сторінці Marathon.",
+      source: "марафон",
+    };
+  }
+
+  const ticks = tickSet(marathon);
+  const day = dayNow(marathon, ctx.now);
+  const { clean, elapsed, streak, total } = progressOf(
+    marathon,
+    ticks,
+    ctx.now
+  );
+
+  if (day < 1) {
+    const away = 1 - day;
+    return {
+      kind: "answer",
+      text: `«${marathon.title}» ще не почався — старт через ${away} ${dayWord(away)}.`,
+      source: "марафон",
+    };
+  }
+  if (day > total) {
+    return {
+      kind: "answer",
+      text: `«${marathon.title}» закінчено: ${clean} з ${total} ${dayWord(total)} чисто.`,
+      source: "марафон",
+    };
+  }
+
+  const load = loadOfDay(marathon, day, ticks);
+  const today =
+    load.total === 0
+      ? "На сьогодні в ньому нічого не записано."
+      : load.done === load.total
+        ? "Сьогодні закрито повністю."
+        : `Сьогодні зроблено ${load.done} з ${load.total}.`;
+  const streakLine =
+    streak >= 2 ? ` Серія — ${streak} ${dayWord(streak)}.` : "";
+
+  return {
+    kind: "answer",
+    text: `«${marathon.title}» — день ${day} з ${total}. ${today} Чистих днів ${clean} з ${elapsed}.${streakLine}`,
+    source: "марафон",
+  };
+}
+
+/**
+ * Where today actually went, off the status log — the same spans the timeline
+ * across the top of the dashboard is drawn from.
+ */
+function answerStatus(ctx: ChatContext): Reply {
+  const totals = statusTotals(todaySpans(ctx.statusLog, ctx.now));
+  if (totals.length === 0) {
+    return {
+      kind: "answer",
+      text: "Сьогодні статусів не було.",
+      source: "статуси",
+    };
+  }
+
+  const logged = totals.reduce((sum, total) => sum + total.minutes, 0);
+  const breakdown = totals
+    .slice(0, 4)
+    .map((total) => `${total.status} — ${formatMinutes(total.minutes)}`)
+    .join(", ");
+  const rest = totals.length > 4 ? `, та ще ${totals.length - 4}` : "";
+
+  return {
+    kind: "answer",
+    text: `Записано ${formatMinutes(logged)} за сьогодні: ${breakdown}${rest}.`,
+    source: "статуси",
+  };
+}
+
 function answerSummary(ctx: ChatContext): Reply {
   const todayKey = toKey(ctx.now);
   const steps = ctx.steps[todayKey] ?? 0;
@@ -323,10 +495,24 @@ function answerSummary(ctx: ChatContext): Reply {
   const weight = latestWeight(ctx);
   const closed = ctx.completions[todayKey] ?? 0;
 
+  // The two newest areas belong in the summary or the summary is out of date
+  // the moment either of them is the thing you did today.
+  const workout = sessions(ctx).find((session) => session.date === todayKey);
+  const marathonToday = ctx.marathon
+    ? (() => {
+        const day = dayNow(ctx.marathon, ctx.now);
+        if (day < 1 || day > ctx.marathon.days) return null;
+        const load = loadOfDay(ctx.marathon, day, tickSet(ctx.marathon));
+        return load.total > 0 ? `марафон ${load.done}/${load.total}` : null;
+      })()
+    : null;
+
   const parts = [
     `Кроків сьогодні ${fmt(steps)}${ctx.stepGoal > 0 ? ` з ${fmt(ctx.stepGoal)}` : ""}`,
     weight ? `вага ${kg(weight.kilos)} кг` : null,
     `закрито ${closed} ${plural(closed, "задачу", "задачі", "задач")}`,
+    workout ? `тренування «${planOf(workout.kind).label}»` : null,
+    marathonToday,
     streak >= 2 ? `ціль по кроках ${streak} ${dayWord(streak)} поспіль` : null,
   ].filter(Boolean);
 
@@ -392,6 +578,9 @@ const HELP = [
   "• вага — «яка вага», «коли я важився»",
   "• слова — «скільки слів цього тижня»",
   "• нотатки, roadmap — «скільки нотаток», «що по roadmap»",
+  "• тренування — «скільки тренувань цього тижня»",
+  "• марафон — «що по марафону»",
+  "• статуси — «чим я займався сьогодні»",
   "• підсумок — «як справи»",
   "",
   "Записати: «9200 кроків», «статус Working», «стоп» — зняти статус.",
@@ -452,8 +641,13 @@ export function ask(input: string, ctx: ChatContext): Reply {
   if (has(text, STEPS)) return answerSteps(ctx, text, period ?? today);
   if (has(text, WEIGHT)) return answerWeight(ctx, text);
   if (has(text, WORDS)) return answerWords(ctx, period ?? thisWeek);
-  if (has(text, NOTES)) return answerNotes(ctx);
+  if (has(text, NOTES)) return answerNotes(ctx, period);
   if (has(text, ROADMAP)) return answerRoadmap(ctx);
+  // Before the status branch: a marathon is asked about by name, and "статус"
+  // would otherwise catch a question that happens to mention one.
+  if (has(text, MARATHON)) return answerMarathon(ctx);
+  if (has(text, TRAINING)) return answerTraining(ctx, period ?? thisWeek);
+  if (has(text, STATUS)) return answerStatus(ctx);
 
   // A period and an aggregate, but no subject — "середнє за 30 днів". Steps are
   // the only daily number anyone asks that about, and answering the likely

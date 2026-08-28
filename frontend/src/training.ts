@@ -340,6 +340,36 @@ export const totalsOf = (sets: WorkoutSet[]): Totals =>
     { sets: 0, reps: 0, seconds: 0, volume: 0 }
   );
 
+/**
+ * What a session amounts to in one figure — or two, when it holds both kinds of
+ * work. Kilograms for the loaded routine and reps for the bodyweight one,
+ * because volume in kilograms is zero for the second and would read as a
+ * session that did nothing; a plank adds the time it was held, which belongs
+ * next to those rather than folded into them.
+ */
+export const summary = (session: WorkoutSession): string => {
+  const plan = planOf(session.kind);
+  const verb = plan.solo?.verb ?? "logged";
+  const totals = totalsOf(session.sets);
+
+  const parts: string[] = [];
+  if (session.kind === "strength" && totals.volume > 0) {
+    parts.push(`${kg(totals.volume)} kg`);
+  } else if (totals.reps > 0) {
+    parts.push(`${totals.reps} reps`);
+  }
+  // Time is worth saying what was done with it — held, skipped — because the
+  // number alone is the same however it was spent.
+  if (totals.seconds > 0) parts.push(`${hold(totals.seconds)} ${verb}`);
+  if (parts.length > 0) return parts.join(" · ");
+
+  // Nothing logged yet, which still has to read as something: zero, in the unit
+  // this plan is actually counted in rather than in reps it will never have.
+  return plan.exercises.every((ex) => ex.unit === "seconds")
+    ? `${hold(0)} ${verb}`
+    : "0 reps";
+};
+
 export const setsOf = (
   session: WorkoutSession,
   exercise: string
@@ -352,7 +382,7 @@ export const setsOf = (
  */
 export const progressOf = (session: WorkoutSession): number => {
   const plan = planOf(session.kind);
-  const target = plan.exercises.reduce((sum, ex) => sum + ex.sets, 0);
+  const target = targetSets(plan);
   if (target === 0) return 0;
   const done = plan.exercises.reduce(
     (sum, ex) => sum + Math.min(ex.sets, setsOf(session, ex.slug).length),
@@ -360,6 +390,26 @@ export const progressOf = (session: WorkoutSession): number => {
   );
   return done / target;
 };
+
+/** How many sets a plan asks for in total — the denominator of a session. */
+export const targetSets = (plan: WorkoutPlan): number =>
+  plan.exercises.reduce((sum, ex) => sum + ex.sets, 0);
+
+/**
+ * The session being logged right now, if there is one.
+ *
+ * A workout is live only if it is today's: one left unfinished on Monday is
+ * history by Wednesday, and reopening it then would file Wednesday's sets under
+ * Monday. Both the training page and the dashboard ask this, and a day that
+ * counts as live on one screen has to count as live on the other.
+ */
+export const liveSession = (
+  sessions: WorkoutSession[],
+  today: Date
+): WorkoutSession | undefined =>
+  sessions.find(
+    (session) => !session.finished_at && session.date === toKey(today)
+  );
 
 /**
  * The sets of an exercise the last time it was trained, skipping the session
@@ -404,6 +454,61 @@ export const bestSets = (sessions: WorkoutSession[]): Map<string, Best> => {
     }
   }
   return best;
+};
+
+/**
+ * Which kinds each day held, in one pass over the history. A day can hold more
+ * than one — a rope round on the morning of a strength evening — so the value
+ * is a set rather than a kind, and every reading of a day starts here.
+ */
+export const kindsByDate = (
+  sessions: WorkoutSession[]
+): Map<string, Set<WorkoutKind>> => {
+  const byDate = new Map<string, Set<WorkoutKind>>();
+  for (const session of sessions) {
+    const kinds = byDate.get(session.date) ?? new Set<WorkoutKind>();
+    kinds.add(session.kind);
+    byDate.set(session.date, kinds);
+  }
+  return byDate;
+};
+
+/** What a day's cell can be. A kind each, plus the days with none of them. */
+export type Mark = WorkoutKind | "rest";
+
+/** In legend order, and named by the plans so the two cannot drift apart. */
+export const MARKS: { mark: Mark; label: string }[] = [
+  ...PLANS.map((plan) => ({ mark: plan.kind as Mark, label: plan.label })),
+  { mark: "rest", label: "Rest" },
+];
+
+/**
+ * The mark a day goes by. More than one kind in a day takes the heaviest — plan
+ * order — because the cell has room for one shape, and the day's own label
+ * names them all anyway.
+ */
+export const markOf = (kinds: Set<WorkoutKind> | undefined): Mark =>
+  PLANS.find((plan) => kinds?.has(plan.kind))?.kind ?? "rest";
+
+/**
+ * What a day reads as on hover: the day, and what was done on it. Shared by
+ * every strip, so a rest day cannot say "rest" on one screen and nothing at all
+ * on another. The weekday comes off the key rather than a passed index — the
+ * key already knows which day it is.
+ */
+export const dayTitle = (
+  key: string,
+  kinds: Set<WorkoutKind> | undefined,
+  future: boolean
+): string => {
+  const [year, month, day] = key.split("-").map(Number);
+  const weekday = WEEKDAYS[(new Date(year, month - 1, day).getDay() + 6) % 7];
+  const what = kinds
+    ? [...kinds].map((kind) => planOf(kind).label).join(" + ")
+    : future
+      ? "not yet"
+      : "rest";
+  return `${weekday} ${dayLabel(key)} — ${what}`;
 };
 
 /**
