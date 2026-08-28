@@ -70,6 +70,18 @@ export function activityRows(signals: Signals, days: Date[]): ActivityRow[] {
     signals.milestones.map((m) => parseSqlDate(m.updated_at).getTime()),
     keys
   );
+  // Sessions carry the local day they belong to, so these two are tallied by
+  // their own date key rather than by a timestamp: a set logged at half past
+  // midnight belongs to the workout it was part of, not to the next column.
+  const sets = keys.map((key) =>
+    signals.workouts
+      .filter((session) => session.date === key)
+      .reduce((count, session) => count + session.sets.length, 0)
+  );
+  const marathon = keys.map(
+    (key) =>
+      signals.marathon?.ticks.filter((tick) => tick.date === key).length ?? 0
+  );
   // Stepping on the scale is not a quantity — you either did or you didn't, and
   // the reading itself says nothing about the effort of that day. Carrying the
   // kilograms as the value anyway lets the tooltip name them; the scale of 1
@@ -90,6 +102,21 @@ export function activityRows(signals: Signals, days: Date[]): ActivityRow[] {
       values: tasks,
       scale: scaleFor(tasks, 3),
       describe: (v) => `${v} closed`,
+    },
+    {
+      label: "Training",
+      values: sets,
+      // A routine is eight to twelve sets, so that is what a full day of it
+      // looks like — not whatever the heaviest session in the window happened
+      // to be.
+      scale: scaleFor(sets, 10),
+      describe: (v) => `${v} ${en(v, "set")} logged`,
+    },
+    {
+      label: "Marathon",
+      values: marathon,
+      scale: scaleFor(marathon, 2),
+      describe: (v) => `${v} ticked off`,
     },
     {
       label: "English",

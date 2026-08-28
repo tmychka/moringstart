@@ -4,6 +4,9 @@ import type {
   BlockType,
   Folder,
   FolderWithPages,
+  Marathon,
+  MarathonItem,
+  MarathonTick,
   MetricId,
   Milestone,
   MilestoneCreate,
@@ -111,6 +114,35 @@ export const logSet = (
 export const updateSet = (setId: number, reps: number, weight: number) =>
   put<WorkoutSet>(`${WORKOUTS}/sets/${setId}`, { reps, weight });
 export const deleteSet = (setId: number) => del(`${WORKOUTS}/sets/${setId}`);
+
+// The marathon is about the person rather than one of their areas, so it sits
+// at the root next to the profile. One request brings back the run, everything
+// in it and everything ticked off — the card draws all three at once, and a
+// marathon is small enough that splitting it would only cost round trips.
+const MARATHON = `${API_URL}/marathon`;
+
+/** The most recent marathon, or null when none has been started. */
+export const getMarathon = () => request<Marathon | null>(MARATHON);
+export const startMarathon = (title: string, days: number, startDate: string) =>
+  post<Marathon>(MARATHON, { title, days, startDate });
+export const updateMarathon = (
+  id: number,
+  body: { title?: string; days?: number }
+) => put<Marathon>(`${MARATHON}/${id}`, body);
+export const deleteMarathon = (id: number) => del(`${MARATHON}/${id}`);
+
+/** `day` null makes it a rule for every day; a number pins it to that day. */
+export const addMarathonItem = (id: number, text: string, day: number | null) =>
+  post<MarathonItem>(`${MARATHON}/${id}/items`, { text, day });
+export const updateMarathonItem = (
+  itemId: number,
+  body: { text?: string; day?: number | null }
+) => put<MarathonItem>(`${MARATHON}/items/${itemId}`, body);
+export const deleteMarathonItem = (itemId: number) =>
+  del(`${MARATHON}/items/${itemId}`);
+/** Marks an item done on a day, or takes it back; returns that item's ticks. */
+export const tickMarathonItem = (itemId: number, date: string, done: boolean) =>
+  put<MarathonTick[]>(`${MARATHON}/items/${itemId}/tick`, { date, done });
 
 // Passing a topic narrows the list to that subject; leaving it off returns every
 // note on the metric, which is what the metric's own page wants.
