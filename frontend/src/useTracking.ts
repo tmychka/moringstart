@@ -13,16 +13,18 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getMarathon,
   getNotes,
   getProfile,
   getRoadmap,
   getSteps,
+  getWorkouts,
   saveProfile,
   saveSteps,
   saveWeight,
   undoStatus,
 } from "./api";
-import { DEVELOPER, STEPS } from "./areas";
+import { DEVELOPER, STEPS, TRAINING } from "./areas";
 import { readWords } from "./englishWords";
 import { dayStartStamp } from "./jarvis";
 import { toKey } from "./stepsUtil";
@@ -62,6 +64,17 @@ export function useSignals(now: Date): Signals {
     queryKey: ["roadmap", DEVELOPER.metricId],
     queryFn: () => getRoadmap(DEVELOPER.metricId),
   });
+  // The training page's key and the marathon card's key, so both areas cost
+  // nothing extra once either screen has been open — and a set logged or a box
+  // ticked repaints the briefing without a refetch.
+  const { data: workouts } = useQuery({
+    queryKey: ["workouts", TRAINING.metricId],
+    queryFn: () => getWorkouts(TRAINING.metricId),
+  });
+  const { data: marathon } = useQuery({
+    queryKey: ["marathon"],
+    queryFn: getMarathon,
+  });
 
   const todos = useTodos();
   const completions = useCompletionLog();
@@ -87,6 +100,8 @@ export function useSignals(now: Date): Signals {
       vocabulary: readWords(),
       devNotes: devNotes ?? [],
       milestones: milestones ?? [],
+      workouts: workouts ?? [],
+      marathon: marathon ?? null,
     }),
     [
       now,
@@ -99,6 +114,8 @@ export function useSignals(now: Date): Signals {
       profile,
       devNotes,
       milestones,
+      workouts,
+      marathon,
     ]
   );
 }
