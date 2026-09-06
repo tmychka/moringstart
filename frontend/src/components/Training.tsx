@@ -1,13 +1,7 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AppSidebar from "./AppSidebar";
+import DayMark from "./DayMark";
 import type { SidebarLink } from "./Sidebar";
 import {
   deleteSet,
@@ -23,6 +17,7 @@ import { s } from "../plural";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import useNow from "../useNow";
 import {
+  MARKS,
   PLANS,
   ROUTINES,
   SOLO,
@@ -32,10 +27,14 @@ import {
   bestSets,
   clock,
   dayLabel,
+  dayTitle,
   exerciseName,
   hold,
   kg,
+  kindsByDate,
   lastEffort,
+  liveSession,
+  markOf,
   monthLabel,
   parseStamp,
   planOf,
@@ -44,6 +43,8 @@ import {
   setLabel,
   setsOf,
   sinceLabel,
+  summary,
+  targetSets,
   unitLabel,
   startOfWeek,
   suggestedKind,
@@ -199,15 +200,9 @@ export default function Training({ section }: { section: string }) {
   const store = useWorkouts();
   const scroller = useRef<HTMLDivElement>(null);
 
-  // A workout is live only if it is today's: one left unfinished on Monday is
-  // history by Wednesday, and reopening it then would file Wednesday's sets
-  // under Monday.
-  //
   // Each section owns its own kinds, so a rope round running in the background
   // does not take over Today — and a routine does not take over Jump rope.
-  const live = store.sessions.find(
-    (session) => !session.finished_at && session.date === todayKey
-  );
+  const live = liveSession(store.sessions, now);
   const active = live && sectionOf(live.kind) === section ? live : undefined;
   const solo = SOLO.find((plan) => plan.kind === section);
 
@@ -351,8 +346,7 @@ function Ready({ t, store, now, todayKey }: ReadyProps) {
                     {plan.label}
                   </h2>
                   <p className={`m-0 mt-1 text-[0.78rem] ${t.muted}`}>
-                    {plan.exercises.length} exercises ·{" "}
-                    {plan.exercises.reduce((n, ex) => n + ex.sets, 0)} sets
+                    {plan.exercises.length} exercises · {targetSets(plan)} sets
                   </p>
                 </div>
                 {plan.kind === suggested && logged.length > 0 && (
@@ -631,12 +625,7 @@ function ActivityStrip({
   sessions: WorkoutSession[];
   now: Date;
 }) {
-  const byDate = new Map<string, Set<WorkoutKind>>();
-  for (const session of sessions) {
-    const kinds = byDate.get(session.date) ?? new Set<WorkoutKind>();
-    kinds.add(session.kind);
-    byDate.set(session.date, kinds);
-  }
+  const byDate = kindsByDate(sessions);
 
   const firstWeek = addDays(startOfWeek(now), (1 - STRIP_WEEKS) * 7);
   const weeks = Array.from({ length: STRIP_WEEKS }, (_, w) =>
@@ -690,37 +679,19 @@ function ActivityStrip({
                 className="flex shrink-0 flex-col gap-1"
               >
                 {Array.from({ length: 7 }, (_, d) => {
-                  const day = addDays(weekStart, d);
-                  const key = toKey(day);
+                  const key = toKey(addDays(weekStart, d));
                   const kinds = byDate.get(key);
                   const future = key > todayKey;
-                  // A day can hold more than one kind, so the cell takes the
-                  // heaviest — plan order — and the tooltip names them all. The
-                  // marks stay one each however they are combined.
-                  const mark: Mark =
-                    PLANS.find((plan) => kinds?.has(plan.kind))?.kind ?? "rest";
 
                   return (
-                    <span
+                    <DayMark
                       key={key}
-                      title={`${WEEKDAYS[d]} ${dayLabel(key)} — ${
-                        kinds
-                          ? [...kinds].map((k) => planOf(k).label).join(" + ")
-                          : future
-                            ? "not yet"
-                            : "rest"
-                      }`}
-                      className="grid h-4 w-4 place-items-center rounded-[3px]"
-                      style={{
-                        ...markStyle(t, mark),
-                        opacity: future ? 0.35 : 1,
-                        outline:
-                          key === todayKey ? `1.5px solid ${t.accentSoft}` : "",
-                        outlineOffset: "1px",
-                      }}
-                    >
-                      {markInner(t, mark)}
-                    </span>
+                      t={t}
+                      mark={markOf(kinds)}
+                      title={dayTitle(key, kinds, future)}
+                      today={key === todayKey}
+                      future={future}
+                    />
                   );
                 })}
               </div>
@@ -736,12 +707,7 @@ function ActivityStrip({
       >
         {MARKS.map(({ mark, label }) => (
           <span key={mark} className="flex items-center gap-2">
-            <i
-              className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px]"
-              style={markStyle(t, mark)}
-            >
-              {markInner(t, mark)}
-            </i>
+            <DayMark t={t} mark={mark} />
             {label}
           </span>
         ))}
@@ -749,42 +715,6 @@ function ActivityStrip({
     </section>
   );
 }
-
-/** What a day's cell can be. A kind each, plus the days with none of them. */
-type Mark = WorkoutKind | "rest";
-
-/** In legend order, and named by the plans so the two cannot drift apart. */
-const MARKS: { mark: Mark; label: string }[] = [
-  ...PLANS.map((plan) => ({ mark: plan.kind as Mark, label: plan.label })),
-  { mark: "rest", label: "Rest" },
-];
-
-/** The cell itself: filled for strength, ringed for simple, bare otherwise. */
-const markStyle = (t: Theme, mark: Mark): CSSProperties =>
-  mark === "strength"
-    ? { backgroundColor: t.accent }
-    : mark === "simple"
-      ? { boxShadow: `inset 0 0 0 2px ${t.accent}` }
-      : { backgroundColor: t.track };
-
-/**
- * What sits inside the bare cells, which is what tells the solo sessions apart:
- * a dot for the plank, a bar for the rope. Drawn as a child rather than another
- * inset shadow — at four pixels across, a ring and a dot on the same box fight
- * over the same edge and both lose.
- */
-const markInner = (t: Theme, mark: Mark): ReactNode =>
-  mark === "plank" ? (
-    <i
-      className="h-1.5 w-1.5 rounded-full"
-      style={{ backgroundColor: t.accent }}
-    />
-  ) : mark === "rope" ? (
-    <i
-      className="h-[2px] w-2.5 rounded-full"
-      style={{ backgroundColor: t.accent }}
-    />
-  ) : null;
 
 // --- The workout itself ---
 
@@ -1461,36 +1391,6 @@ const groupByExercise = (session: WorkoutSession): [string, WorkoutSet[]][] => {
     else groups.set(set.exercise, [set]);
   }
   return [...groups];
-};
-
-/**
- * What a session amounts to in one figure — or two, when it holds both kinds of
- * work. Kilograms for the loaded routine and reps for the bodyweight one,
- * because volume in kilograms is zero for the second and would read as a
- * session that did nothing; a plank adds the time it was held, which belongs
- * next to those rather than folded into them.
- */
-const summary = (session: WorkoutSession): string => {
-  const plan = planOf(session.kind);
-  const verb = plan.solo?.verb ?? "logged";
-  const totals = totalsOf(session.sets);
-
-  const parts: string[] = [];
-  if (session.kind === "strength" && totals.volume > 0) {
-    parts.push(`${kg(totals.volume)} kg`);
-  } else if (totals.reps > 0) {
-    parts.push(`${totals.reps} reps`);
-  }
-  // Time is worth saying what was done with it — held, skipped — because the
-  // number alone is the same however it was spent.
-  if (totals.seconds > 0) parts.push(`${hold(totals.seconds)} ${verb}`);
-  if (parts.length > 0) return parts.join(" · ");
-
-  // Nothing logged yet, which still has to read as something: zero, in the unit
-  // this plan is actually counted in rather than in reps it will never have.
-  return plan.exercises.every((ex) => ex.unit === "seconds")
-    ? `${hold(0)} ${verb}`
-    : "0 reps";
 };
 
 /** A clock that only runs while something is being timed against it. */
