@@ -4,7 +4,6 @@ import StepsTracker from "../components/StepsTracker";
 import Developer from "../components/Developer";
 import EnglishWords from "../components/EnglishWords";
 import Training from "../components/Training";
-import MarathonPage from "./MarathonPage";
 import Todos from "./Todos";
 import { areaBySlug, type Area } from "../areas";
 import { topicBySlug } from "../developerTopics";
@@ -66,10 +65,6 @@ export default function AreaPage() {
         />
       );
     }
-    // One run at a time, so there is nothing below the area for a section to
-    // narrow it to.
-    case "marathon":
-      return <MarathonPage />;
     case "soon":
       return <ComingSoon area={area} />;
   }

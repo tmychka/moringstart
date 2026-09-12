@@ -78,10 +78,6 @@ export function activityRows(signals: Signals, days: Date[]): ActivityRow[] {
       .filter((session) => session.date === key)
       .reduce((count, session) => count + session.sets.length, 0)
   );
-  const marathon = keys.map(
-    (key) =>
-      signals.marathon?.ticks.filter((tick) => tick.date === key).length ?? 0
-  );
   // Stepping on the scale is not a quantity — you either did or you didn't, and
   // the reading itself says nothing about the effort of that day. Carrying the
   // kilograms as the value anyway lets the tooltip name them; the scale of 1
@@ -111,12 +107,6 @@ export function activityRows(signals: Signals, days: Date[]): ActivityRow[] {
       // to be.
       scale: scaleFor(sets, 10),
       describe: (v) => `${v} ${en(v, "set")} logged`,
-    },
-    {
-      label: "Marathon",
-      values: marathon,
-      scale: scaleFor(marathon, 2),
-      describe: (v) => `${v} ticked off`,
     },
     {
       label: "English",

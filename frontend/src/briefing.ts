@@ -28,7 +28,6 @@ import {
   todaySpans,
   trend,
 } from "./jarvis";
-import { dayNow, loadOfDay, progressOf, tickSet } from "./marathon";
 import { days, daysSince, plural, s, words } from "./plural";
 import { parseSqlDate } from "./dashboardStats";
 import { fmt, toKey } from "./stepsUtil";
@@ -36,7 +35,6 @@ import type { CompletionLog, Todo } from "./todos";
 import { formatMinutes, todayLoad } from "./todos";
 import { planOf, weekStreak } from "./training";
 import type {
-  Marathon,
   Milestone,
   Note as ApiNote,
   ProfileMode,
@@ -62,8 +60,6 @@ export interface Signals {
   milestones: Milestone[];
   /** Every session ever logged, newest first — the training area's own list. */
   workouts: WorkoutSession[];
-  /** The run in progress, or the last one to have finished; null if none. */
-  marathon: Marathon | null;
 }
 
 // Thresholds, named rather than buried in the conditions. Each is the point
@@ -87,16 +83,6 @@ const STALE_STATUS_HOURS = 4;
 const COLD_TRAINING_DAYS = 4;
 /** Past this hour a day with no status on it is a day that went unrecorded. */
 const UNLOGGED_STATUS_HOUR = 12;
-/**
- * When an unfinished marathon day becomes worth mentioning.
- *
- * A run is judged at midnight, so anything still open in the morning is simply
- * the day not having happened yet — saying so at 9am would make the one card
- * that has a real deadline nag from the moment you open it. In the evening the
- * same sentence is the last reminder that will do any good.
- */
-const MARATHON_NUDGE_HOUR = 17;
-
 const MODE_UA: Record<ProfileMode, string> = {
   cut: "сушці",
   maintain: "підтримці",
@@ -517,100 +503,6 @@ function observeTraining(s0: Signals): Note[] {
 }
 
 /**
- * The marathon. Alone among the areas it has a deadline of its own — a day of a
- * run is lost at midnight and cannot be made up — so what it is owed today
- * outweighs almost everything else here once the evening comes.
- */
-function observeMarathon(s0: Signals): Note[] {
-  const notes: Note[] = [];
-  const { marathon, now } = s0;
-  if (!marathon) return notes;
-
-  const ticks = tickSet(marathon);
-  const day = dayNow(marathon, now);
-  const { clean, elapsed, streak, total } = progressOf(marathon, ticks, now);
-
-  // Before it starts there is nothing to have done yet, and after it ends there
-  // is nothing left to do — both are worth one quiet line and no nagging.
-  if (day < 1) {
-    const away = 1 - day;
-    notes.push({
-      ua: `Марафон «${marathon.title}» стартує ${away === 1 ? "завтра" : `через ${away} ${days(away)}`}.`,
-      en: `The "${marathon.title}" run starts in ${away} ${s(away, "day")}.`,
-      source: "марафон",
-      weight: 24,
-    });
-    return notes;
-  }
-
-  if (day > total) {
-    notes.push({
-      ua: `Марафон «${marathon.title}» закінчено — ${clean} з ${total} ${days(total)} чисто.`,
-      en: `The "${marathon.title}" run is over — ${clean} of ${total} days clean.`,
-      source: "марафон",
-      weight: 70,
-    });
-    return notes;
-  }
-
-  if (marathon.items.length === 0) {
-    notes.push({
-      ua: `Марафон іде ${elapsed} ${days(elapsed)}, а правил у ньому жодного.`,
-      en: `The run is ${elapsed} ${s(elapsed, "day")} in with nothing in it.`,
-      source: "марафон",
-      weight: 36,
-    });
-    return notes;
-  }
-
-  const load = loadOfDay(marathon, day, ticks);
-  const left = load.total - load.done;
-  if (left > 0 && now.getHours() >= MARATHON_NUDGE_HOUR) {
-    notes.push({
-      ua: `Марафон: на сьогодні лишилось ${left} з ${load.total}. День рахується до півночі.`,
-      en: `Marathon: ${left} of ${load.total} still open today. The day closes at midnight.`,
-      source: "марафон",
-      // Above every complaint about a habit: those can be answered tomorrow,
-      // and this one cannot.
-      weight: 94,
-    });
-  }
-
-  if (load.total > 0 && load.done === load.total) {
-    notes.push({
-      ua: `Марафон за сьогодні закритий — день ${day} з ${total}.`,
-      en: `Marathon closed for today — day ${day} of ${total}.`,
-      source: "марафон",
-      weight: 74,
-    });
-  }
-
-  // Yesterday, but only from the second day on — day one has no yesterday.
-  if (day >= 2) {
-    const before = loadOfDay(marathon, day - 1, ticks);
-    if (before.total > 0 && before.done === 0) {
-      notes.push({
-        ua: `Вчорашній день марафону пропущено. Сьогодні — ${day} з ${total}.`,
-        en: `Yesterday's marathon day went untouched. Today is ${day} of ${total}.`,
-        source: "марафон",
-        weight: 76,
-      });
-    }
-  }
-
-  if (streak >= 3) {
-    notes.push({
-      ua: `Марафон: ${streak} ${days(streak)} поспіль чисто.`,
-      en: `Marathon: ${streak} ${s(streak, "day")} clean in a row.`,
-      source: "марафон",
-      weight: 48 + streak * 3,
-    });
-  }
-
-  return notes;
-}
-
-/**
  * The status log, as a record of the day rather than as a label.
  *
  * The timeline across the top of the dashboard is drawn from these rows, so what
@@ -722,26 +614,6 @@ function observeAcross(s0: Signals): Note[] {
     }
   }
 
-  // The run asks for something today and the day is being spent elsewhere. Two
-  // areas that each look fine on their own: tasks are closing, and a marathon
-  // day is quietly running out.
-  if (s0.marathon) {
-    const ticks = tickSet(s0.marathon);
-    const day = dayNow(s0.marathon, now);
-    if (day >= 1 && day <= s0.marathon.days) {
-      const load = loadOfDay(s0.marathon, day, ticks);
-      const closed = s0.completions[toKey(now)] ?? 0;
-      if (load.total > 0 && load.done === 0 && closed >= 3) {
-        notes.push({
-          ua: `Сьогодні закрито ${closed} ${plural(closed, "задачу", "задачі", "задач")}, а марафон — жодного пункту з ${load.total}.`,
-          en: `${closed} tasks closed today and not one of the run's ${load.total}.`,
-          source: "марафон + задачі",
-          weight: 90,
-        });
-      }
-    }
-  }
-
   // An hour of learning that left nothing behind. The status log says the time
   // went in; the notes say there will be nothing to revise from tomorrow — and
   // neither screen can see the other's half of that.
@@ -836,7 +708,6 @@ export function observeAll(s0: Signals): Note[] {
     ...observeRoadmap(s0),
     ...observeNotes(s0),
     ...observeTraining(s0),
-    ...observeMarathon(s0),
     ...observeStatus(s0),
     ...observeTodos(s0.todos, s0.completions, s0.now),
   ].sort((a, b) => b.weight - a.weight);

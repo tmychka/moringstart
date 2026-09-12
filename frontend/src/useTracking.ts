@@ -13,7 +13,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getMarathon,
   getNotes,
   getProfile,
   getRoadmap,
@@ -64,16 +63,12 @@ export function useSignals(now: Date): Signals {
     queryKey: ["roadmap", DEVELOPER.metricId],
     queryFn: () => getRoadmap(DEVELOPER.metricId),
   });
-  // The training page's key and the marathon card's key, so both areas cost
-  // nothing extra once either screen has been open — and a set logged or a box
-  // ticked repaints the briefing without a refetch.
+  // The training page's own key, so the area costs nothing extra once that
+  // screen has been open — and a set logged repaints the briefing without a
+  // refetch.
   const { data: workouts } = useQuery({
     queryKey: ["workouts", TRAINING.metricId],
     queryFn: () => getWorkouts(TRAINING.metricId),
-  });
-  const { data: marathon } = useQuery({
-    queryKey: ["marathon"],
-    queryFn: getMarathon,
   });
 
   const todos = useTodos();
@@ -101,7 +96,6 @@ export function useSignals(now: Date): Signals {
       devNotes: devNotes ?? [],
       milestones: milestones ?? [],
       workouts: workouts ?? [],
-      marathon: marathon ?? null,
     }),
     [
       now,
@@ -115,7 +109,6 @@ export function useSignals(now: Date): Signals {
       devNotes,
       milestones,
       workouts,
-      marathon,
     ]
   );
 }

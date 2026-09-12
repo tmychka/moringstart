@@ -141,9 +141,8 @@ function Row({ t, entry, now, onComplete, onRemove, onOpen }: RowProps) {
         aria-label={`Complete ${todo.title}`}
         title="Mark as done"
         onClick={onComplete}
-        // The same mark as the todo rows and the marathon's, so ticking
-        // something off is one gesture across the app rather than one per
-        // screen.
+        // The same mark as the rows on the todo page, so ticking something off
+        // is one gesture across the app rather than one per screen.
         className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border transition-colors hover:opacity-70"
         style={{
           borderColor: todo.priority ? t.accent : t.track,

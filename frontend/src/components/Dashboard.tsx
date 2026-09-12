@@ -52,7 +52,7 @@ function useEnglishWords() {
  * and what the body is up to.
  *
  * Every card is a glance with one gesture on it. Anything that takes more than
- * that has a page of its own in the sidebar, which is where the marathon went.
+ * that has a page of its own in the sidebar.
  */
 export default function Dashboard() {
   const navigate = useNavigate();

@@ -114,10 +114,6 @@ const GROUPS: { title: string; prompts: Prompt[] }[] = [
     ],
   },
   {
-    title: "Марафон",
-    prompts: [{ label: "Як іде забіг", text: "що по марафону" }],
-  },
-  {
     title: "День",
     prompts: [{ label: "Чим займався", text: "чим я займався сьогодні" }],
   },

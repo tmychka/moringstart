@@ -18,7 +18,6 @@ import {
   startOfWeek,
 } from "./dashboardStats";
 import { kg, statusTotals, todaySpans } from "./jarvis";
-import { dayNow, loadOfDay, progressOf, tickSet } from "./marathon";
 import { topicBySlug } from "./developerTopics";
 import { daysSince, days as dayWord, plural } from "./plural";
 import { startOfMonth } from "./statusMonth";
@@ -85,7 +84,6 @@ const WORDS = ["слов", "слів", "англій", "word", "english", "vocab
 const NOTES = ["нотат", "note", "запис"];
 const ROADMAP = ["roadmap", "роадмап", "етап", "milestone"];
 const TRAINING = ["трену", "качал", "workout", "training", "підход", "спорт"];
-const MARATHON = ["марафон", "marathon", "забіг"];
 // "чим займався" is the same question as "які статуси" — the log is the only
 // thing that can answer either.
 const STATUS = ["статус", "status", "займ", "куди пішов день", "день пройш"];
@@ -409,57 +407,6 @@ function answerTraining(ctx: ChatContext, period: Period): Reply {
   };
 }
 
-function answerMarathon(ctx: ChatContext): Reply {
-  const { marathon } = ctx;
-  if (!marathon) {
-    return {
-      kind: "answer",
-      text: "Марафону зараз немає. Почати можна на сторінці Marathon.",
-      source: "марафон",
-    };
-  }
-
-  const ticks = tickSet(marathon);
-  const day = dayNow(marathon, ctx.now);
-  const { clean, elapsed, streak, total } = progressOf(
-    marathon,
-    ticks,
-    ctx.now
-  );
-
-  if (day < 1) {
-    const away = 1 - day;
-    return {
-      kind: "answer",
-      text: `«${marathon.title}» ще не почався — старт через ${away} ${dayWord(away)}.`,
-      source: "марафон",
-    };
-  }
-  if (day > total) {
-    return {
-      kind: "answer",
-      text: `«${marathon.title}» закінчено: ${clean} з ${total} ${dayWord(total)} чисто.`,
-      source: "марафон",
-    };
-  }
-
-  const load = loadOfDay(marathon, day, ticks);
-  const today =
-    load.total === 0
-      ? "На сьогодні в ньому нічого не записано."
-      : load.done === load.total
-        ? "Сьогодні закрито повністю."
-        : `Сьогодні зроблено ${load.done} з ${load.total}.`;
-  const streakLine =
-    streak >= 2 ? ` Серія — ${streak} ${dayWord(streak)}.` : "";
-
-  return {
-    kind: "answer",
-    text: `«${marathon.title}» — день ${day} з ${total}. ${today} Чистих днів ${clean} з ${elapsed}.${streakLine}`,
-    source: "марафон",
-  };
-}
-
 /**
  * Where today actually went, off the status log — the same spans the timeline
  * across the top of the dashboard is drawn from.
@@ -495,24 +442,14 @@ function answerSummary(ctx: ChatContext): Reply {
   const weight = latestWeight(ctx);
   const closed = ctx.completions[todayKey] ?? 0;
 
-  // The two newest areas belong in the summary or the summary is out of date
-  // the moment either of them is the thing you did today.
+  // Training belongs in the summary or the summary is out of date the moment it
+  // is the thing you did today.
   const workout = sessions(ctx).find((session) => session.date === todayKey);
-  const marathonToday = ctx.marathon
-    ? (() => {
-        const day = dayNow(ctx.marathon, ctx.now);
-        if (day < 1 || day > ctx.marathon.days) return null;
-        const load = loadOfDay(ctx.marathon, day, tickSet(ctx.marathon));
-        return load.total > 0 ? `марафон ${load.done}/${load.total}` : null;
-      })()
-    : null;
-
   const parts = [
     `Кроків сьогодні ${fmt(steps)}${ctx.stepGoal > 0 ? ` з ${fmt(ctx.stepGoal)}` : ""}`,
     weight ? `вага ${kg(weight.kilos)} кг` : null,
     `закрито ${closed} ${plural(closed, "задачу", "задачі", "задач")}`,
     workout ? `тренування «${planOf(workout.kind).label}»` : null,
-    marathonToday,
     streak >= 2 ? `ціль по кроках ${streak} ${dayWord(streak)} поспіль` : null,
   ].filter(Boolean);
 
@@ -579,7 +516,6 @@ const HELP = [
   "• слова — «скільки слів цього тижня»",
   "• нотатки, roadmap — «скільки нотаток», «що по roadmap»",
   "• тренування — «скільки тренувань цього тижня»",
-  "• марафон — «що по марафону»",
   "• статуси — «чим я займався сьогодні»",
   "• підсумок — «як справи»",
   "",
@@ -643,9 +579,6 @@ export function ask(input: string, ctx: ChatContext): Reply {
   if (has(text, WORDS)) return answerWords(ctx, period ?? thisWeek);
   if (has(text, NOTES)) return answerNotes(ctx, period);
   if (has(text, ROADMAP)) return answerRoadmap(ctx);
-  // Before the status branch: a marathon is asked about by name, and "статус"
-  // would otherwise catch a question that happens to mention one.
-  if (has(text, MARATHON)) return answerMarathon(ctx);
   if (has(text, TRAINING)) return answerTraining(ctx, period ?? thisWeek);
   if (has(text, STATUS)) return answerStatus(ctx);
 
