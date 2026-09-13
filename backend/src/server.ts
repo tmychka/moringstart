@@ -4,6 +4,7 @@ import type { SQLInputValue } from 'node:sqlite';
 import { execute, insertedId, nextFreeId, queryAll, queryOne, required, rowCount } from './db';
 import {
   isBlockType,
+  isItemColor,
   isProfileMode,
   isRoadmapStatus,
   isWorkoutKind,
@@ -13,11 +14,11 @@ import {
   type ErrorBody,
   type Folder,
   type FolderWithPages,
-  type Milestone,
   type Note,
   type NoteRow,
   type Page,
   type ProfilePayload,
+  type RoadmapItem,
   type ProfileRow,
   type StatusEntry,
   type StepsPayload,
@@ -379,87 +380,136 @@ app.delete('/metrics/:id/notes/:noteId', (req, res: Response<ErrorBody | void>) 
   return res.status(204).end();
 });
 
-// --- Roadmap timeline ---
+// --- Roadmap ---
+//
+// One flat list at the root: the roadmap is what the person is working through,
+// not a section of one area, and the card on the dashboard reads all of it in a
+// single request.
 
-const clampPosition = (n: number): number => Math.min(100, Math.max(0, n));
+const isDay = (value: unknown): value is string =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
-app.get('/metrics/:id/roadmap', (req, res: Response<Milestone[]>) => {
-  const metricId = Number(req.params.id);
-  res.json(
-    queryAll<Milestone>(
-      'SELECT * FROM roadmap_milestones WHERE metric_id = ? ORDER BY position ASC',
-      metricId,
-    ),
-  );
+/** An estimate has to be at least a day; a year is past the point of estimating. */
+const isEstimate = (value: unknown): boolean =>
+  Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 365;
+
+const BAD_DAYS_ESTIMATE = 'days must be a whole number of days between 1 and 365';
+const BAD_DUE = 'due must be YYYY-MM-DD or null';
+const BAD_COLOR = 'color must be one of the roadmap colours';
+
+const readItem = (id: number | string): RoadmapItem | undefined =>
+  queryOne<RoadmapItem>('SELECT * FROM roadmap_items WHERE id = ?', id);
+
+/** Today in the client's terms is unknowable here, so dates come from the body. */
+app.get('/roadmap', (_req, res: Response<RoadmapItem[]>) => {
+  res.json(queryAll<RoadmapItem>('SELECT * FROM roadmap_items ORDER BY position ASC, id ASC'));
 });
 
-app.post('/metrics/:id/roadmap', (req, res: Response<Milestone | ErrorBody>) => {
-  const metricId = Number(req.params.id);
-  if (!metricExists(metricId)) return res.status(404).json({ error: 'metric not found' });
-  const { title, position } = bodyOf(req);
-  const cleanTitle = trimmed(title);
-  if (!cleanTitle) return res.status(400).json({ error: 'title required' });
-  let pos = 50;
-  if (position !== undefined) {
-    const n = Number(position);
-    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
-    pos = clampPosition(n);
+app.post('/roadmap', (req, res: Response<RoadmapItem | ErrorBody>) => {
+  const body = bodyOf(req);
+  const title = trimmed(body.title);
+  if (!title) return res.status(400).json({ error: 'title required' });
+  if (body.days !== undefined && !isEstimate(body.days)) {
+    return res.status(400).json({ error: BAD_DAYS_ESTIMATE });
   }
+  if (body.due !== undefined && body.due !== null && !isDay(body.due)) {
+    return res.status(400).json({ error: BAD_DUE });
+  }
+  const color = body.color ?? '';
+  if (!isItemColor(color)) return res.status(400).json({ error: BAD_COLOR });
+
   const info = execute(
-    'INSERT INTO roadmap_milestones (metric_id, title, position) VALUES (?, ?, ?)',
-    metricId,
-    cleanTitle,
-    pos,
+    'INSERT INTO roadmap_items (title, color, days, due, position) VALUES (?, ?, ?, ?, ?)',
+    title.slice(0, 80),
+    color,
+    body.days === undefined ? 1 : Number(body.days),
+    (body.due as string | null | undefined) ?? null,
+    nextPosition('roadmap_items', '1 = 1'),
   );
-  const row = queryOne<Milestone>(
-    'SELECT * FROM roadmap_milestones WHERE id = ?',
-    insertedId(info),
-  );
-  return res.status(201).json(required(row, 'milestone'));
+  return res.status(201).json(required(readItem(insertedId(info)), 'item'));
 });
 
-app.put('/metrics/:id/roadmap/:milestoneId', (req, res: Response<Milestone | ErrorBody>) => {
-  const metricId = Number(req.params.id);
-  const { milestoneId } = req.params;
-  const { title, position, status } = bodyOf(req);
+/**
+ * Editing an item, and the one place the server writes history: the day a thing
+ * was picked up and the day it was finished are stamped when the status says so,
+ * because the client's idea of "now" is the only clock that knows the local day
+ * — and a plan that could rewrite them would stop being a record of anything.
+ */
+app.put('/roadmap/:id', (req, res: Response<RoadmapItem | ErrorBody>) => {
+  const { id } = req.params;
+  const item = readItem(id);
+  if (!item) return res.status(404).json({ error: 'not found' });
+
+  const body = bodyOf(req);
   const sets: string[] = [];
   const values: SQLInputValue[] = [];
-  if (title !== undefined) {
-    const cleanTitle = trimmed(title);
-    if (!cleanTitle) return res.status(400).json({ error: 'title required' });
+
+  if (body.title !== undefined) {
+    const title = trimmed(body.title);
+    if (!title) return res.status(400).json({ error: 'title required' });
     sets.push('title = ?');
-    values.push(cleanTitle);
+    values.push(title.slice(0, 80));
   }
-  if (position !== undefined) {
-    const n = Number(position);
-    if (!Number.isFinite(n)) return res.status(400).json({ error: 'position must be a number' });
+  if (body.days !== undefined) {
+    if (!isEstimate(body.days)) return res.status(400).json({ error: BAD_DAYS_ESTIMATE });
+    sets.push('days = ?');
+    values.push(Number(body.days));
+  }
+  // null is a real value here — it takes the deadline off.
+  if ('due' in body) {
+    if (body.due !== null && !isDay(body.due)) return res.status(400).json({ error: BAD_DUE });
+    sets.push('due = ?');
+    values.push((body.due as string | null) ?? null);
+  }
+  if (body.color !== undefined) {
+    if (!isItemColor(body.color)) return res.status(400).json({ error: BAD_COLOR });
+    sets.push('color = ?');
+    values.push(body.color);
+  }
+  if (body.position !== undefined) {
+    if (typeof body.position !== 'number' || !Number.isFinite(body.position)) {
+      return res.status(400).json({ error: 'position must be a number' });
+    }
     sets.push('position = ?');
-    values.push(clampPosition(n));
+    values.push(body.position);
   }
-  if (status !== undefined) {
-    if (!isRoadmapStatus(status)) return res.status(400).json({ error: 'invalid status' });
+  if (body.status !== undefined) {
+    if (!isRoadmapStatus(body.status)) return res.status(400).json({ error: 'invalid status' });
     sets.push('status = ?');
-    values.push(status);
+    values.push(body.status);
+
+    const today = isDay(body.today) ? body.today : null;
+    if (body.status === 'doing' && item.started_at === null && today) {
+      sets.push('started_at = ?');
+      values.push(today);
+    }
+    if (body.status === 'done' && today) {
+      // Something ticked off without ever being picked up still ran for as long
+      // as its estimate says, so the start is inferred rather than left empty:
+      // an item with no start cannot be drawn on the strip at all.
+      if (item.started_at === null) {
+        const start = new Date(`${today}T00:00:00Z`);
+        start.setUTCDate(start.getUTCDate() - (item.days - 1));
+        sets.push('started_at = ?');
+        values.push(start.toISOString().slice(0, 10));
+      }
+      sets.push('done_at = ?');
+      values.push(today);
+    }
+    if (body.status === 'todo') {
+      sets.push('started_at = ?', 'done_at = ?');
+      values.push(null, null);
+    }
   }
   if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
-  // Enforce a single current (in_progress) node per metric.
-  if (status === 'in_progress') {
-    execute(
-      "UPDATE roadmap_milestones SET status = 'upcoming' WHERE metric_id = ? AND status = 'in_progress' AND id <> ?",
-      metricId,
-      milestoneId,
-    );
-  }
-  sets.push("updated_at = datetime('now')");
-  values.push(milestoneId);
-  const info = execute(`UPDATE roadmap_milestones SET ${sets.join(', ')} WHERE id = ?`, ...values);
-  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
-  const row = queryOne<Milestone>('SELECT * FROM roadmap_milestones WHERE id = ?', milestoneId);
-  return res.json(required(row, 'milestone'));
+
+  values.push(id);
+  execute(`UPDATE roadmap_items SET ${sets.join(', ')} WHERE id = ?`, ...values);
+  return res.json(required(readItem(id), 'item'));
 });
 
-app.delete('/metrics/:id/roadmap/:milestoneId', (req, res: Response<ErrorBody | void>) => {
-  const info = execute('DELETE FROM roadmap_milestones WHERE id = ?', req.params.milestoneId);
+app.delete('/roadmap/:id', (req, res: Response<ErrorBody | void>) => {
+  const info = execute('DELETE FROM roadmap_items WHERE id = ?', req.params.id);
   if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
   return res.status(204).end();
 });
