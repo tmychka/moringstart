@@ -170,29 +170,6 @@ if (!hasTopic) {
   db.exec("ALTER TABLE notes ADD COLUMN topic TEXT NOT NULL DEFAULT ''");
 }
 
-// The roadmap: the queue of things being worked through, each with an estimate
-// and, when something is promised, a date it is owed by.
-//
-// Only the estimate and the deadline are stored. When a thing will actually run
-// is worked out from the queue every time the card draws, so re-ordering or
-// re-estimating one item re-plans everything behind it without touching a row.
-// What has already happened is the exception: `started_at` and `done_at` are
-// facts, and a plan must never overwrite a fact.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS roadmap_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    color TEXT NOT NULL DEFAULT '',
-    days INTEGER NOT NULL DEFAULT 1,
-    due TEXT,
-    status TEXT NOT NULL DEFAULT 'todo',
-    position REAL NOT NULL DEFAULT 0,
-    started_at TEXT,
-    done_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )
-`);
-
 // A workspace is the (metric_id, topic) pair rather than a row of its own, so a
 // subject gets one the moment its first folder is created and never needs seeding.
 db.exec(`

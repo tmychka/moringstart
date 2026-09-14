@@ -4,9 +4,7 @@ import type { SQLInputValue } from 'node:sqlite';
 import { execute, insertedId, nextFreeId, queryAll, queryOne, required, rowCount } from './db';
 import {
   isBlockType,
-  isItemColor,
   isProfileMode,
-  isRoadmapStatus,
   isWorkoutKind,
   WORKOUT_KINDS,
   type Block,
@@ -18,7 +16,6 @@ import {
   type NoteRow,
   type Page,
   type ProfilePayload,
-  type RoadmapItem,
   type ProfileRow,
   type StatusEntry,
   type StepsPayload,
@@ -376,140 +373,6 @@ app.put('/metrics/:id/notes/:noteId', (req, res: Response<Note | ErrorBody>) => 
 
 app.delete('/metrics/:id/notes/:noteId', (req, res: Response<ErrorBody | void>) => {
   const info = execute('DELETE FROM notes WHERE id = ?', req.params.noteId);
-  if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
-  return res.status(204).end();
-});
-
-// --- Roadmap ---
-//
-// One flat list at the root: the roadmap is what the person is working through,
-// not a section of one area, and the card on the dashboard reads all of it in a
-// single request.
-
-const isDay = (value: unknown): value is string =>
-  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-
-/** An estimate has to be at least a day; a year is past the point of estimating. */
-const isEstimate = (value: unknown): boolean =>
-  Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 365;
-
-const BAD_DAYS_ESTIMATE = 'days must be a whole number of days between 1 and 365';
-const BAD_DUE = 'due must be YYYY-MM-DD or null';
-const BAD_COLOR = 'color must be one of the roadmap colours';
-
-const readItem = (id: number | string): RoadmapItem | undefined =>
-  queryOne<RoadmapItem>('SELECT * FROM roadmap_items WHERE id = ?', id);
-
-/** Today in the client's terms is unknowable here, so dates come from the body. */
-app.get('/roadmap', (_req, res: Response<RoadmapItem[]>) => {
-  res.json(queryAll<RoadmapItem>('SELECT * FROM roadmap_items ORDER BY position ASC, id ASC'));
-});
-
-app.post('/roadmap', (req, res: Response<RoadmapItem | ErrorBody>) => {
-  const body = bodyOf(req);
-  const title = trimmed(body.title);
-  if (!title) return res.status(400).json({ error: 'title required' });
-  if (body.days !== undefined && !isEstimate(body.days)) {
-    return res.status(400).json({ error: BAD_DAYS_ESTIMATE });
-  }
-  if (body.due !== undefined && body.due !== null && !isDay(body.due)) {
-    return res.status(400).json({ error: BAD_DUE });
-  }
-  const color = body.color ?? '';
-  if (!isItemColor(color)) return res.status(400).json({ error: BAD_COLOR });
-
-  const info = execute(
-    'INSERT INTO roadmap_items (title, color, days, due, position) VALUES (?, ?, ?, ?, ?)',
-    title.slice(0, 80),
-    color,
-    body.days === undefined ? 1 : Number(body.days),
-    (body.due as string | null | undefined) ?? null,
-    nextPosition('roadmap_items', '1 = 1'),
-  );
-  return res.status(201).json(required(readItem(insertedId(info)), 'item'));
-});
-
-/**
- * Editing an item, and the one place the server writes history: the day a thing
- * was picked up and the day it was finished are stamped when the status says so,
- * because the client's idea of "now" is the only clock that knows the local day
- * — and a plan that could rewrite them would stop being a record of anything.
- */
-app.put('/roadmap/:id', (req, res: Response<RoadmapItem | ErrorBody>) => {
-  const { id } = req.params;
-  const item = readItem(id);
-  if (!item) return res.status(404).json({ error: 'not found' });
-
-  const body = bodyOf(req);
-  const sets: string[] = [];
-  const values: SQLInputValue[] = [];
-
-  if (body.title !== undefined) {
-    const title = trimmed(body.title);
-    if (!title) return res.status(400).json({ error: 'title required' });
-    sets.push('title = ?');
-    values.push(title.slice(0, 80));
-  }
-  if (body.days !== undefined) {
-    if (!isEstimate(body.days)) return res.status(400).json({ error: BAD_DAYS_ESTIMATE });
-    sets.push('days = ?');
-    values.push(Number(body.days));
-  }
-  // null is a real value here — it takes the deadline off.
-  if ('due' in body) {
-    if (body.due !== null && !isDay(body.due)) return res.status(400).json({ error: BAD_DUE });
-    sets.push('due = ?');
-    values.push((body.due as string | null) ?? null);
-  }
-  if (body.color !== undefined) {
-    if (!isItemColor(body.color)) return res.status(400).json({ error: BAD_COLOR });
-    sets.push('color = ?');
-    values.push(body.color);
-  }
-  if (body.position !== undefined) {
-    if (typeof body.position !== 'number' || !Number.isFinite(body.position)) {
-      return res.status(400).json({ error: 'position must be a number' });
-    }
-    sets.push('position = ?');
-    values.push(body.position);
-  }
-  if (body.status !== undefined) {
-    if (!isRoadmapStatus(body.status)) return res.status(400).json({ error: 'invalid status' });
-    sets.push('status = ?');
-    values.push(body.status);
-
-    const today = isDay(body.today) ? body.today : null;
-    if (body.status === 'doing' && item.started_at === null && today) {
-      sets.push('started_at = ?');
-      values.push(today);
-    }
-    if (body.status === 'done' && today) {
-      // Something ticked off without ever being picked up still ran for as long
-      // as its estimate says, so the start is inferred rather than left empty:
-      // an item with no start cannot be drawn on the strip at all.
-      if (item.started_at === null) {
-        const start = new Date(`${today}T00:00:00Z`);
-        start.setUTCDate(start.getUTCDate() - (item.days - 1));
-        sets.push('started_at = ?');
-        values.push(start.toISOString().slice(0, 10));
-      }
-      sets.push('done_at = ?');
-      values.push(today);
-    }
-    if (body.status === 'todo') {
-      sets.push('started_at = ?', 'done_at = ?');
-      values.push(null, null);
-    }
-  }
-  if (sets.length === 0) return res.status(400).json({ error: 'nothing to update' });
-
-  values.push(id);
-  execute(`UPDATE roadmap_items SET ${sets.join(', ')} WHERE id = ?`, ...values);
-  return res.json(required(readItem(id), 'item'));
-});
-
-app.delete('/roadmap/:id', (req, res: Response<ErrorBody | void>) => {
-  const info = execute('DELETE FROM roadmap_items WHERE id = ?', req.params.id);
   if (rowCount(info) === 0) return res.status(404).json({ error: 'not found' });
   return res.status(204).end();
 });

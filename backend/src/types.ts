@@ -1,68 +1,6 @@
 // Shapes of the SQLite rows and of the JSON the API sends back. The frontend
 // mirrors the response half of this file in frontend/src/types.ts.
 
-// --- Roadmap: what is being worked through, and by when ---
-
-/**
- * Where an item is. Only one thing can be in hand at a time in practice, but
- * that is the person's business rather than the server's, so nothing here
- * enforces it.
- */
-export const ROADMAP_STATUSES = ['todo', 'doing', 'done'] as const;
-export type RoadmapStatus = (typeof ROADMAP_STATUSES)[number];
-
-/**
- * The colours an item can carry. A closed set rather than free hex: the card
- * paints bars, a legend and a dot from this and nothing else, so every value
- * has to be one the frontend can name and draw on both schemes. '' means the
- * card picks one by position, which is what makes a fresh roadmap colourful
- * without anyone choosing anything.
- */
-export const ITEM_COLORS = [
-  '',
-  'red',
-  'orange',
-  'amber',
-  'green',
-  'teal',
-  'blue',
-  'violet',
-  'pink',
-] as const;
-export type ItemColor = (typeof ITEM_COLORS)[number];
-
-export const isItemColor = (value: unknown): value is ItemColor =>
-  typeof value === 'string' && (ITEM_COLORS as readonly string[]).includes(value);
-
-export const isRoadmapStatus = (value: unknown): value is RoadmapStatus =>
-  typeof value === 'string' && (ROADMAP_STATUSES as readonly string[]).includes(value);
-
-/**
- * One thing on the roadmap: what it is, how long it is expected to take, and
- * the date it is owed by if it is owed by one.
- *
- * `days` is an estimate in calendar days and is what the card schedules from —
- * the dates a thing will actually occupy are worked out from the queue rather
- * than stored, so moving one item re-plans everything behind it without a write.
- * `started_at` and `done_at` are the exceptions: once something has really
- * happened, what happened is a fact and is kept.
- */
-export interface RoadmapItem {
-  id: number;
-  title: string;
-  color: ItemColor;
-  /** Estimated length in days; at least 1. */
-  days: number;
-  /** The day it is owed by, YYYY-MM-DD, or null when nothing is promised. */
-  due: string | null;
-  status: RoadmapStatus;
-  /** Order in the queue; the card schedules in this order. */
-  position: number;
-  started_at: string | null;
-  done_at: string | null;
-  created_at: string;
-}
-
 /** A note as stored: `links` is still the raw JSON text from the column. */
 export interface NoteRow {
   id: number;
