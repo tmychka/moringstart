@@ -10,7 +10,14 @@ import type { IconName } from "./components/Sidebar";
 
 /** Which page an area opens. */
 export type AreaKind =
-  "todos" | "notebook" | "vocabulary" | "steps" | "training" | "plan" | "soon";
+  | "todos"
+  | "notebook"
+  | "vocabulary"
+  | "steps"
+  | "training"
+  | "plan"
+  | "newYou"
+  | "soon";
 
 export interface Area {
   /** First URL segment: `/developer`, `/english`, … */
@@ -68,8 +75,26 @@ export const STEPS: StoredArea = {
   metricId: 4,
 };
 
+/**
+ * Sport, coding and English planned a day at a time until New Year. The board
+ * lives in localStorage like the todos, so there is nothing on the server.
+ */
+export const NEW_YOU: Area = {
+  slug: "new-you",
+  label: "New You",
+  icon: "spark",
+  kind: "newYou",
+};
+
 /** In sidebar order. */
-export const AREAS: Area[] = [TODOS, DEVELOPER, ENGLISH, TRAINING, STEPS];
+export const AREAS: Area[] = [
+  TODOS,
+  DEVELOPER,
+  ENGLISH,
+  TRAINING,
+  STEPS,
+  NEW_YOU,
+];
 
 export const areaBySlug = (slug: string | undefined): Area | undefined =>
   AREAS.find((area) => area.slug === slug);
