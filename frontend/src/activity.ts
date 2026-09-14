@@ -66,13 +66,9 @@ export function activityRows(signals: Signals, days: Date[]): ActivityRow[] {
     signals.devNotes.map((n) => parseSqlDate(n.updated_at).getTime()),
     keys
   );
-  const roadmap = countByDay(
-    signals.milestones.map((m) => parseSqlDate(m.updated_at).getTime()),
-    keys
-  );
-  // Sessions carry the local day they belong to, so these two are tallied by
-  // their own date key rather than by a timestamp: a set logged at half past
-  // midnight belongs to the workout it was part of, not to the next column.
+  // Sessions carry the local day they belong to, so these are tallied by their
+  // own date key rather than by a timestamp: a set logged at half past midnight
+  // belongs to the workout it was part of, not to the next column.
   const sets = keys.map((key) =>
     signals.workouts
       .filter((session) => session.date === key)
@@ -119,12 +115,6 @@ export function activityRows(signals: Signals, days: Date[]): ActivityRow[] {
       values: notes,
       scale: scaleFor(notes, 2),
       describe: (v) => `${v} ${en(v, "note")} written`,
-    },
-    {
-      label: "Roadmap",
-      values: roadmap,
-      scale: 1,
-      describe: (v) => `${v} ${en(v, "milestone")} moved`,
     },
     {
       label: "Weight",

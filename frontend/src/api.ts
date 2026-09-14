@@ -5,9 +5,6 @@ import type {
   Folder,
   FolderWithPages,
   MetricId,
-  Milestone,
-  MilestoneCreate,
-  MilestoneUpdate,
   Note,
   NoteUpdate,
   Page,
@@ -126,19 +123,6 @@ export const updateNote = (id: MetricId, noteId: number, body: NoteUpdate) =>
   put<Note>(`${BASE}/${id}/notes/${noteId}`, body);
 export const deleteNote = (id: MetricId, noteId: number) =>
   del(`${BASE}/${id}/notes/${noteId}`);
-
-// Roadmap timeline
-export const getRoadmap = (id: MetricId) =>
-  request<Milestone[]>(`${BASE}/${id}/roadmap`);
-export const createMilestone = (id: MetricId, body: MilestoneCreate) =>
-  post<Milestone>(`${BASE}/${id}/roadmap`, body);
-export const updateMilestone = (
-  id: MetricId,
-  mId: number,
-  body: MilestoneUpdate
-) => put<Milestone>(`${BASE}/${id}/roadmap/${mId}`, body);
-export const deleteMilestone = (id: MetricId, mId: number) =>
-  del(`${BASE}/${id}/roadmap/${mId}`);
 
 // Workspace: folders → pages → blocks. A workspace is the (metric, topic) pair,
 // so folder creation is nested under the subject and everything below it is
