@@ -82,7 +82,6 @@ const STEPS = ["крок", "step", "шаг", "пройш", "нахо"];
 const WEIGHT = ["ваг", "вазі", "важ", "weight", " кг", "kg"];
 const WORDS = ["слов", "слів", "англій", "word", "english", "vocab"];
 const NOTES = ["нотат", "note", "запис"];
-const ROADMAP = ["roadmap", "роадмап", "етап", "milestone"];
 const TRAINING = ["трену", "качал", "workout", "training", "підход", "спорт"];
 // "чим займався" is the same question as "які статуси" — the log is the only
 // thing that can answer either.
@@ -344,22 +343,6 @@ function answerNotes(ctx: ChatContext, period: Period | null): Reply {
   };
 }
 
-function answerRoadmap(ctx: ChatContext): Reply {
-  if (ctx.milestones.length === 0) {
-    return { kind: "answer", text: "Roadmap порожній.", source: "roadmap" };
-  }
-  const done = ctx.milestones.filter((m) => m.status === "done").length;
-  const current = ctx.milestones.find((m) => m.status === "in_progress");
-  const tail = current
-    ? ` В роботі — «${current.title}» вже ${daysSince(parseSqlDate(current.updated_at).getTime(), ctx.now)} ${dayWord(daysSince(parseSqlDate(current.updated_at).getTime(), ctx.now))}.`
-    : " Нічого не в роботі.";
-  return {
-    kind: "answer",
-    text: `${done} з ${ctx.milestones.length} етапів пройдено.${tail}`,
-    source: "roadmap",
-  };
-}
-
 /** Sessions with sets in them — see `trained` in briefing.ts for the why. */
 const sessions = (ctx: ChatContext) =>
   ctx.workouts.filter((session) => session.sets.length > 0);
@@ -514,7 +497,7 @@ const HELP = [
   "• кроки — «скільки кроків сьогодні», «середнє за 30 днів»",
   "• вага — «яка вага», «коли я важився»",
   "• слова — «скільки слів цього тижня»",
-  "• нотатки, roadmap — «скільки нотаток», «що по roadmap»",
+  "• нотатки — «скільки нотаток цього тижня»",
   "• тренування — «скільки тренувань цього тижня»",
   "• статуси — «чим я займався сьогодні»",
   "• підсумок — «як справи»",
@@ -578,7 +561,6 @@ export function ask(input: string, ctx: ChatContext): Reply {
   if (has(text, WEIGHT)) return answerWeight(ctx, text);
   if (has(text, WORDS)) return answerWords(ctx, period ?? thisWeek);
   if (has(text, NOTES)) return answerNotes(ctx, period);
-  if (has(text, ROADMAP)) return answerRoadmap(ctx);
   if (has(text, TRAINING)) return answerTraining(ctx, period ?? thisWeek);
   if (has(text, STATUS)) return answerStatus(ctx);
 
