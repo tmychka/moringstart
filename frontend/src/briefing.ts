@@ -35,7 +35,6 @@ import type { CompletionLog, Todo } from "./todos";
 import { formatMinutes, todayLoad } from "./todos";
 import { planOf, weekStreak } from "./training";
 import type {
-  Milestone,
   Note as ApiNote,
   ProfileMode,
   StatusEntry,
@@ -57,7 +56,6 @@ export interface Signals {
   statusLog: StatusEntry[];
   vocabulary: StoredWord[];
   devNotes: ApiNote[];
-  milestones: Milestone[];
   /** Every session ever logged, newest first — the training area's own list. */
   workouts: WorkoutSession[];
 }
@@ -76,7 +74,6 @@ const COLD_NOTES_DAYS = 5;
 const COLD_SUBJECT_DAYS = 12;
 /** Enough unfiled notes for the filing itself to be worth a line. */
 const UNFILED_NOTES = 5;
-const FROZEN_ROADMAP_DAYS = 7;
 /** One status held this long has almost certainly stopped being true. */
 const STALE_STATUS_HOURS = 4;
 /** A gap this long stops being a rest day and starts being a stopped habit. */
@@ -250,77 +247,6 @@ function observeVocabulary(s0: Signals): Note[] {
 /** How a note count reads in Ukrainian. */
 const noteWord = (n: number): string =>
   plural(n, "нотатка", "нотатки", "нотаток");
-
-/**
- * The roadmap: where the plan has got to.
- *
- * A milestone just closed outweighs everything else this area can say — it is
- * the one thing here that happens rarely and is worth being told about — and a
- * milestone in progress is reported at any age, not only once it has been stuck
- * for a week. Reporting only the stuck ones is what made this area silent on
- * every normal day.
- */
-function observeRoadmap(s0: Signals): Note[] {
-  const notes: Note[] = [];
-  const { milestones, now } = s0;
-  if (milestones.length === 0) return notes;
-
-  const done = milestones.filter((m) => m.status === "done");
-  const total = milestones.length;
-
-  if (done.length === total) {
-    notes.push({
-      ua: "Roadmap пройдено повністю.",
-      en: "The roadmap is fully done.",
-      source: "roadmap",
-      weight: 95,
-    });
-    return notes;
-  }
-
-  // The most recently closed one, while it is still news.
-  const closed = done
-    .map((m) => ({ m, at: parseSqlDate(m.updated_at).getTime() }))
-    .filter(({ at }) => Number.isFinite(at))
-    .sort((a, b) => b.at - a.at)[0];
-  if (closed && daysSince(closed.at, now) <= 2) {
-    notes.push({
-      ua: `«${closed.m.title}» закрито — ${done.length} з ${total} етапів позаду.`,
-      en: `"${closed.m.title}" is done — ${done.length} of ${total} milestones behind you.`,
-      source: "roadmap",
-      weight: 74,
-    });
-  }
-
-  const current = milestones.find((m) => m.status === "in_progress");
-  if (current) {
-    const age = daysSince(parseSqlDate(current.updated_at).getTime(), now);
-    notes.push(
-      age >= FROZEN_ROADMAP_DAYS
-        ? {
-            ua: `«${current.title}» в роботі вже ${age} ${days(age)}.`,
-            en: `"${current.title}" has been in progress ${age} ${s(age, "day")}.`,
-            source: "roadmap",
-            weight: 40 + Math.min(age, 20),
-          }
-        : {
-            ua: `В роботі «${current.title}» — ${done.length} з ${total} етапів позаду.`,
-            en: `"${current.title}" is in progress — ${done.length} of ${total} milestones behind you.`,
-            source: "roadmap",
-            weight: 28,
-          }
-    );
-  } else {
-    notes.push({
-      ua: `Roadmap: ${done.length} з ${total} етапів, у роботі жодного.`,
-      en: `Roadmap: ${done.length} of ${total} done, nothing in progress.`,
-      source: "roadmap",
-      weight: 32,
-    });
-  }
-
-  return notes;
-}
 
 /**
  * The notes behind "Learn to code" — what was written, and what is going cold.
@@ -551,7 +477,7 @@ function observeStatus(s0: Signals): Note[] {
  */
 function observeAcross(s0: Signals): Note[] {
   const notes: Note[] = [];
-  const { steps, stepGoal, weights, weightGoal, mode, milestones, now } = s0;
+  const { steps, stepGoal, weights, weightGoal, mode, now } = s0;
 
   // Cutting while the mileage falls — the two halves of the same plan pulling
   // against each other, which is the whole reason this module exists.
@@ -634,27 +560,6 @@ function observeAcross(s0: Signals): Note[] {
     }
   }
 
-  // Closing tasks while the plan they were meant to serve stands still.
-  const current = milestones.find((m) => m.status === "in_progress");
-  if (current) {
-    const frozen = daysSince(parseSqlDate(current.updated_at).getTime(), now);
-    const closed = Object.entries(s0.completions)
-      .filter(([key]) => {
-        const [y, m, d] = key.split("-").map(Number);
-        return daysSince(new Date(y, m - 1, d).getTime(), now) < frozen;
-      })
-      .reduce((sum, [, n]) => sum + n, 0);
-
-    if (frozen >= FROZEN_ROADMAP_DAYS && closed >= 5) {
-      notes.push({
-        ua: `Roadmap стоїть ${frozen} ${days(frozen)}, а задач за цей час закрито ${closed}. Рухається не те, що планувалось.`,
-        en: `The roadmap hasn't moved in ${frozen} ${s(frozen, "day")}, but ${closed} tasks closed in that time. You're moving, just not the plan.`,
-        source: "roadmap + журнал",
-        weight: 86,
-      });
-    }
-  }
-
   // One status held far too long to still be describing anything.
   const newest = s0.statusLog[0];
   if (newest) {
@@ -705,7 +610,6 @@ export function observeAll(s0: Signals): Note[] {
     ...observeSteps(s0),
     ...observeWeight(s0),
     ...observeVocabulary(s0),
-    ...observeRoadmap(s0),
     ...observeNotes(s0),
     ...observeTraining(s0),
     ...observeStatus(s0),
