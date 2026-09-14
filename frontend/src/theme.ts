@@ -22,7 +22,7 @@ const darkBase = {
   iconBtn: "text-white/30 hover:bg-white/[0.08] hover:text-white/80",
   track: "rgba(255,255,255,0.10)",
   // Blue means "in progress" across the app, so it is fixed rather than tied to
-  // the accent — see the status colours in RoadmapTimeline.
+  // the accent.
   progressDot: "#60a5fa",
   sidebarItem: "text-white/45 hover:bg-white/[0.07] hover:text-white",
   sidebarItemActive: "bg-white/[0.10] text-white",
