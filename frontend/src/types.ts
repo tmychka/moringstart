@@ -1,8 +1,6 @@
 // The JSON the backend sends back, mirroring backend/src/types.ts, plus the theme
 // palette the dashboard and sidebar share.
 
-export type RoadmapStatus = "upcoming" | "in_progress" | "done";
-
 /**
  * The id the backend files an area's rows under, taken from the area list in
  * `areas.ts` and interpolated straight into the API's paths.
@@ -17,16 +15,6 @@ export interface Note {
   links: Record<string, string>;
   /** Subject slug the note belongs to; '' means it sits on the metric itself. */
   topic: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Milestone {
-  id: number;
-  metric_id: number;
-  title: string;
-  position: number;
-  status: RoadmapStatus;
   created_at: string;
   updated_at: string;
 }
@@ -122,17 +110,6 @@ export interface NoteUpdate {
   content?: string;
   links?: Record<string, string>;
   topic?: string;
-}
-
-export interface MilestoneCreate {
-  title: string;
-  position?: number;
-}
-
-export interface MilestoneUpdate {
-  title?: string;
-  position?: number;
-  status?: RoadmapStatus;
 }
 
 // --- Workspace: folders → pages → blocks ---

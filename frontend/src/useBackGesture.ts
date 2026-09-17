@@ -44,8 +44,8 @@ export function useBackGesture(onBack: () => void) {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       // Cmd/Ctrl/Alt + arrow belong to the browser and to text navigation.
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // Rows and milestones reorder themselves with the arrows and call
-      // preventDefault; that keypress was already spoken for.
+      // Rows that reorder themselves with the arrows call preventDefault; that
+      // keypress was already spoken for.
       if (e.defaultPrevented) return;
       if (isTypingTarget(e.target) || hasOpenDialog()) return;
       back();
