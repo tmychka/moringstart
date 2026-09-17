@@ -103,7 +103,6 @@ const GROUPS: { title: string; prompts: Prompt[] }[] = [
     prompts: [
       { label: "Нотатки по темах", text: "скільки нотаток" },
       { label: "Цього тижня", text: "скільки нотаток цього тижня" },
-      { label: "Roadmap", text: "що по roadmap" },
     ],
   },
   {

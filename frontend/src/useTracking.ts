@@ -15,7 +15,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getNotes,
   getProfile,
-  getRoadmap,
   getSteps,
   getWorkouts,
   saveProfile,
@@ -59,10 +58,6 @@ export function useSignals(now: Date): Signals {
     queryKey: ["notes", DEVELOPER.metricId],
     queryFn: () => getNotes(DEVELOPER.metricId),
   });
-  const { data: milestones } = useQuery({
-    queryKey: ["roadmap", DEVELOPER.metricId],
-    queryFn: () => getRoadmap(DEVELOPER.metricId),
-  });
   // The training page's own key, so the area costs nothing extra once that
   // screen has been open — and a set logged repaints the briefing without a
   // refetch.
@@ -94,7 +89,6 @@ export function useSignals(now: Date): Signals {
       statusLog: profile?.log ?? [],
       vocabulary: readWords(),
       devNotes: devNotes ?? [],
-      milestones: milestones ?? [],
       workouts: workouts ?? [],
     }),
     [
@@ -107,7 +101,6 @@ export function useSignals(now: Date): Signals {
       mode,
       profile,
       devNotes,
-      milestones,
       workouts,
     ]
   );

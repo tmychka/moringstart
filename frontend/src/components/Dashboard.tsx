@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getNotes, getWorkouts } from "../api";
+import { getWorkouts } from "../api";
 import AppSidebar from "./AppSidebar";
 import DayMark from "./DayMark";
-import DevNotes from "./DevNotes";
+import NewYearCountdown from "./NewYearCountdown";
 import StatusBar from "./StatusBar";
 import TodayTodos from "./TodayTodos";
 import WordsOfTheHour from "./WordsOfTheHour";
-import { DEVELOPER, ENGLISH, TRAINING } from "../areas";
+import { ENGLISH, TRAINING } from "../areas";
 import { s } from "../plural";
 import { cardClass, labelClass, numeralClass, useTheme } from "../theme";
 import { readWords } from "../englishWords";
@@ -48,8 +48,8 @@ function useEnglishWords() {
 
 /**
  * The morning screen: what you are doing now across the top, and under it the
- * four things a day is made of — what to revise, what to do, what to remember,
- * and what the body is up to.
+ * four things a day is made of — how much of the year is left, what to do
+ * today, what to remember, and what the body is up to.
  *
  * Every card is a glance with one gesture on it. Anything that takes more than
  * that has a page of its own in the sidebar.
@@ -60,11 +60,7 @@ export default function Dashboard() {
   const words = useEnglishWords();
   const { t } = useTheme();
 
-  // Query keys match the area pages, so the cache is shared both ways.
-  const { data: notes } = useQuery({
-    queryKey: ["notes", DEVELOPER.metricId],
-    queryFn: () => getNotes(DEVELOPER.metricId),
-  });
+  // The query key matches the area page, so the cache is shared both ways.
   const { data: sessions } = useQuery({
     queryKey: ["workouts", TRAINING.metricId],
     queryFn: () => getWorkouts(TRAINING.metricId),
@@ -87,15 +83,13 @@ export default function Dashboard() {
               have done with it. */}
           <StatusBar t={t} now={now} />
 
-          {/* Two by two, in the order a day is worked: revise, then do, then
-              remember, then move. */}
+          {/* Two by two: the days left in the year, then today's list, then
+              what to remember, then the body. */}
           <div className="grid grid-cols-12 gap-3">
-            <DevNotes
+            <NewYearCountdown
               t={t}
               now={now}
-              notes={notes}
               className="col-span-12 md:col-span-6"
-              onOpen={() => navigate(`/${DEVELOPER.slug}`)}
             />
             <TodayTodos t={t} now={now} className="col-span-12 md:col-span-6" />
             <WordsOfTheHour
