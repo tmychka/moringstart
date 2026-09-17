@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getNotes, createNote, updateNote, deleteNote } from "../api";
 import AppSidebar from "./AppSidebar";
-import RoadmapTimeline from "./RoadmapTimeline";
 import Workspace from "./workspace/Workspace";
 import { cardClass, useTheme } from "../theme";
 import { DEVELOPER } from "../areas";
@@ -54,14 +53,14 @@ const TOPIC_LINKS: SidebarLink[] = DEV_TOPICS.map((topic) => ({
 
 /**
  * Two pages behind one component. Without a subject this is the hub — the
- * roadmap and the running note feed. With one it is that subject's workspace,
- * which owns its own two-pane layout and scrolling.
+ * running note feed. With one it is that subject's workspace, which owns its
+ * own two-pane layout and scrolling.
  */
 export default function Developer({ topic, pageId }: DeveloperProps) {
   const { t } = useTheme();
   const navigate = useNavigate();
-  // Notes, roadmap and workspaces are still filed under the metric row this
-  // area has always used; only the URL above it changed.
+  // Notes and workspaces are still filed under the metric row this area has
+  // always used; only the URL above it changed.
   const id = DEVELOPER.metricId;
 
   return (
@@ -94,7 +93,7 @@ export default function Developer({ topic, pageId }: DeveloperProps) {
   );
 }
 
-/** The subject-less view: the roadmap across every subject, then every note. */
+/** The subject-less view: every note, newest first. */
 function DeveloperHub({ t, id }: { t: Theme; id: MetricId }) {
   const queryClient = useQueryClient();
   const { data: notes = [] } = useQuery({
@@ -176,8 +175,6 @@ function DeveloperHub({ t, id }: { t: Theme; id: MetricId }) {
           Track what you&apos;ve learned. Tip: turn on “Edit links” to attach a
           URL to any word.
         </p>
-
-        <RoadmapTimeline id={id} />
 
         <div className="mb-5">
           <div className="relative">
