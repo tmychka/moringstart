@@ -76,6 +76,13 @@ const ICONS = {
     </>
   ),
   code: <path d="m9.2 8.4-3.8 3.6 3.8 3.6M14.8 8.4l3.8 3.6-3.8 3.6" />,
+  // A four-point star with a small one beside it — New You.
+  spark: (
+    <>
+      <path d="M11 5.5c.5 4.1 2.4 6 6.5 6.5-4.1.5-6 2.4-6.5 6.5-.5-4.1-2.4-6-6.5-6.5 4.1-.5 6-2.4 6.5-6.5Z" />
+      <path d="M18.6 3.2v3.2M17 4.8h3.2" />
+    </>
+  ),
   panel: (
     <>
       <rect x="3.4" y="4.4" width="17.2" height="15.2" rx="3" />

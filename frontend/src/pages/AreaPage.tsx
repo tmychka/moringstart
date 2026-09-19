@@ -4,6 +4,7 @@ import StepsTracker from "../components/StepsTracker";
 import Developer from "../components/Developer";
 import EnglishWords from "../components/EnglishWords";
 import Training from "../components/Training";
+import NewYou from "./NewYou";
 import Todos from "./Todos";
 import { areaBySlug, type Area } from "../areas";
 import { topicBySlug } from "../developerTopics";
@@ -65,6 +66,8 @@ export default function AreaPage() {
         />
       );
     }
+    case "newYou":
+      return <NewYou />;
     case "soon":
       return <ComingSoon area={area} />;
   }
