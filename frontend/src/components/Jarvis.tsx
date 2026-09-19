@@ -9,9 +9,9 @@
  *
  * Steps are not a copy of the steps area — this reads and writes the very cache
  * entry `/steps` and the quick panel use, so a number typed here is the same
- * number there, saved to the same row. The same goes for the notes and the
- * roadmap: they are read on the dashboard's keys, so the briefing costs no
- * extra request once either screen has been open.
+ * number there, saved to the same row. The same goes for the notes: they are
+ * read on the dashboard's keys, so the briefing costs no extra request once
+ * either screen has been open.
  */
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
